@@ -4,38 +4,72 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.GnssStatus
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import cz.kuba.dash407.nav.RouteState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.sqrt
+
+/** Jedna poloha z GPS. Rychlost v km/h, kurz ve stupních od severu. */
+data class Fix(
+    val lat: Double,
+    val lon: Double,
+    val speedKmh: Float?,
+    val bearing: Float?,
+    val altitude: Double?,
+    val accuracy: Float?,
+    val time: Long
+)
+
+/** Počet satelitů: použité pro výpočet polohy / viditelné. */
+data class Satellites(val used: Int = 0, val visible: Int = 0)
 
 /**
- * Poloha a rychlost z GPS. Běží po celou dobu života aplikace (i když je vpředu
- * Mapy.com), aby počítadlo jízdy nevynechávalo úseky.
+ * Poloha z GPS pro celé prostředí. Spouští ji aktivita i služba Jízda,
+ * běží, dokud ji potřebuje aspoň jeden z nich.
  */
 object Gps {
     private val _speedKmh = MutableStateFlow<Int?>(null)
     val speedKmh: StateFlow<Int?> = _speedKmh
 
-    private val _location = MutableStateFlow<Location?>(null)
-    val location: StateFlow<Location?> = _location
+    private val _fix = MutableStateFlow<Fix?>(null)
+    val fix: StateFlow<Fix?> = _fix
+
+    private val _satellites = MutableStateFlow(Satellites())
+    val satellites: StateFlow<Satellites> = _satellites
 
     private val _allowed = MutableStateFlow(false)
     val allowed: StateFlow<Boolean> = _allowed
 
     private var manager: LocationManager? = null
     private var running = false
+    private val users = HashSet<String>()
     @Volatile private var demo = false
 
     private val listener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
             if (demo) return
-            _speedKmh.value = if (location.hasSpeed()) (location.speed * 3.6f).roundToInt() else null
-            _location.value = location
-            TripMeter.onLocation(location)
+            publish(
+                Fix(
+                    lat = location.latitude,
+                    lon = location.longitude,
+                    speedKmh = if (location.hasSpeed()) location.speed * 3.6f else null,
+                    bearing = if (location.hasBearing()) location.bearing else null,
+                    altitude = if (location.hasAltitude()) location.altitude else null,
+                    accuracy = if (location.hasAccuracy()) location.accuracy else null,
+                    time = System.currentTimeMillis()
+                )
+            )
         }
 
         @Deprecated("Deprecated in Java")
@@ -46,105 +80,86 @@ object Gps {
         }
     }
 
+    private val gnss = object : GnssStatus.Callback() {
+        override fun onSatelliteStatusChanged(status: GnssStatus) {
+            var used = 0
+            for (i in 0 until status.satelliteCount) if (status.usedInFix(i)) used++
+            _satellites.value = Satellites(used, status.satelliteCount)
+        }
+    }
+
+    private fun publish(f: Fix) {
+        _fix.value = f
+        _speedKmh.value = f.speedKmh?.roundToInt()
+        Trip.onFix(f)
+        Perf.onFix(f)
+        SpeedLimit.onFix(f)
+        RouteState.onFix(f)
+    }
+
     fun hasPermission(context: Context): Boolean =
         context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     @SuppressLint("MissingPermission")
-    fun start(context: Context) {
+    @Synchronized
+    fun start(context: Context, who: String = "app") {
         val ok = hasPermission(context)
         _allowed.value = ok
-        if (!ok || running) return
+        if (!ok) return
+        users.add(who)
+        if (running) return
         val m = context.applicationContext.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return
         manager = m
         try {
-            // Poslední známá poloha hned po startu (počasí, mapa), než chytí GPS.
-            if (_location.value == null) {
-                val last = m.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                    ?: m.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                    ?: m.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
-                if (last != null) _location.value = last
-            }
             if (m.allProviders.contains(LocationManager.GPS_PROVIDER)) {
-                m.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, listener)
+                m.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, listener, Looper.getMainLooper())
                 running = true
+            }
+            @Suppress("DEPRECATION")
+            m.registerGnssStatusCallback(gnss, Handler(Looper.getMainLooper()))
+            // Poslední známá poloha, aby mapa a počasí nečekaly na první fix.
+            if (_fix.value == null) {
+                m.getLastKnownLocation(LocationManager.GPS_PROVIDER)?.let { listener.onLocationChanged(it) }
             }
         } catch (e: Exception) {
             running = false
         }
     }
 
-    fun stop() {
-        if (!running) return
+    @Synchronized
+    fun stop(who: String = "app") {
+        users.remove(who)
+        if (!running || users.isNotEmpty()) return
         try {
             manager?.removeUpdates(listener)
+            manager?.unregisterGnssStatusCallback(gnss)
         } catch (e: Exception) {
             // Nic k uklizení.
         }
         running = false
     }
 
-    /** Ukázkový režim si rychlost nastavuje sám; null ukázku ukončí. */
+    /** Ukázkový režim si rychlost nastavuje sám. */
     fun demoSpeed(value: Int?) {
-        demo = value != null
         _speedKmh.value = value
     }
-}
 
-/** Stav počítadla jízdy. */
-data class TripState(
-    val startedAt: Long,
-    val distanceM: Double = 0.0,
-    val movingMs: Long = 0L,
-    val topKmh: Int = 0
-) {
-    /** Průměrná rychlost v pohybu (km/h), nebo null, dokud auto nejelo. */
-    val averageKmh: Int?
-        get() = if (movingMs < 5_000L) null else (distanceM / 1000.0 / (movingMs / 3_600_000.0)).roundToInt()
-}
-
-/** Počítadlo jízdy z GPS: vzdálenost, čas v pohybu, průměr a maximum. */
-object TripMeter {
-    private const val MAX_ACCURACY_M = 35f
-    private const val MOVING_KMH = 3f
-
-    private val _state = MutableStateFlow(TripState(System.currentTimeMillis()))
-    val state: StateFlow<TripState> = _state
-
-    private var last: Location? = null
-
-    @Synchronized
-    fun onLocation(loc: Location) {
-        val accurate = !loc.hasAccuracy() || loc.accuracy <= MAX_ACCURACY_M
-        if (!accurate) return
-        val kmh = if (loc.hasSpeed()) loc.speed * 3.6f else 0f
-        var s = _state.value
-        val prev = last
-        if (prev != null) {
-            val dt = loc.time - prev.time
-            if (dt in 1..10_000 && kmh >= MOVING_KMH) {
-                s = s.copy(distanceM = s.distanceM + prev.distanceTo(loc), movingMs = s.movingMs + dt)
-            }
+    /** Ukázkový režim: vymyšlená poloha místo skutečné. */
+    fun demoFix(f: Fix?) {
+        demo = f != null
+        if (f != null) {
+            publish(f)
+            _satellites.value = Satellites(12, 17)
         }
-        val rounded = kmh.roundToInt()
-        if (rounded > s.topKmh) s = s.copy(topKmh = rounded)
-        _state.value = s
-        last = loc
     }
 
-    /** Ukázkový režim: jedna sekunda jízdy danou rychlostí. */
-    @Synchronized
-    fun demoTick(kmh: Int) {
-        val s = _state.value
-        _state.value = s.copy(
-            distanceM = s.distanceM + kmh / 3.6,
-            movingMs = s.movingMs + if (kmh > 0) 1000L else 0L,
-            topKmh = maxOf(s.topKmh, kmh)
-        )
-    }
-
-    @Synchronized
-    fun reset() {
-        last = null
-        _state.value = TripState(System.currentTimeMillis())
+    /** Vzdálenost dvou bodů v metrech (haversine). */
+    fun distance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6_371_000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = sin(dLat / 2) * sin(dLat / 2) +
+            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2) * sin(dLon / 2)
+        return 2 * r * atan2(sqrt(a), sqrt(1 - a))
     }
 }

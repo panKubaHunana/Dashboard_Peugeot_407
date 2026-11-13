@@ -6,49 +6,35 @@ CAN box Raise PSA-RZ). Celé česky.
 
 ## Co umí verze 0.2 (beta)
 
-| Část | Obsah |
+| Oblast | Obsah |
 |---|---|
-| **Plochy v kříži** | 5 ploch (Domů uprostřed, Nahoře, Dole, Vlevo, Vpravo), přepínání přejetím prstem nebo přes ukazatel kříže ve spodní liště |
-| **Dlaždice** | Mapa (Mapy.com), Navigace, Hodiny, Počasí, Právě hraje, Jízda (GPS), Rychlost, Palubní počítač, Dveře, Spotřeba, Dok |
-| **Úpravy** | přidání z katalogu, posun, šířka ½ / celá, výška 1–4, odebrání, 5 šablon, krok Zpět |
-| **Vzhled** | 8 barev akcentu, 4 pozadí, průhlednost a zaoblení dlaždic, velikost písma, animace, sekundy, popisky lišty |
-| **Mapy.com** | mapa z REST API Mapy.com (vlastní API klíč), noční ztmavení, hledání a navigace v aplikaci Mapy.com, čtení příštího manévru z jejího oznámení |
-| **Lišty rádia** | horní lišta s ikonami i panel klimatizace zůstávají vidět (lze skrýt ve Vzhledu) |
-| **Auto, Tankování, Aplikace, Nastavení** | jako ve verzi 0.1, otevírají se z nabídky ⋮ ve spodní liště |
-
-### Mapy.com
-1. Na https://developer.mapy.com/account/ se přihlas účtem Seznam, založ projekt a zkopíruj API klíč.
-2. V Dash 407: ⋮ → Nastavení → **Mapa Mapy.com** → vlož klíč → Uložit.
-3. Pro dlaždici Navigace povol přístup k oznámením a nainstaluj aplikaci Mapy.com.
-
-Klíč se ukládá jen v rádiu, do repozitáře nepatří.
+| **Plochy v kříži** | 5 ploch (Domů uprostřed, Mapa nahoře, Jízda dole, Auto vlevo, Hudba vpravo), přechod tahem prstu, kříž ve spodní liště ukazuje aktuální plochu |
+| **Rozložení** | mřížka 4 × 12, widget jde přidat, posunout, roztáhnout rohem, zkopírovat, smazat, zvětšit text; krok zpět; přejmenování ploch |
+| **Widgety (18)** | Mapa, Navigace, Povolená rychlost, Kompas, GPS, Rychlost, Rychloměr, Jízda, Přetížení, Časomíra, Palubní počítač, Dveře, Napětí, Spotřeba, Hodiny, Počasí, Právě hraje, Dok |
+| **Vzhled** | barva zvýraznění, 7 pozadí, průhlednost karet, zaoblení, mezery, velikost písma, rámečky, nadpisy, animace, tmavá mapa, styl mapy |
+| **Mapy.com** | dlaždice, hledání míst a plánování trasy přes REST API (vlastní API klíč), hlasová navigace předáním do aplikace Mapy.com, další manévr z oznámení Mapy.com |
+| **Systémové lišty** | horní lišta s ikonami a spodní lišta klimatizace/hlasitosti zůstávají vidět |
 
 ## Instalace do rádia
 
 1. V prohlížeči rádia otevři **Releases** tohoto repozitáře a stáhni nejnovější `Dash407-….apk`.
-2. Otevři stažený soubor a povol instalaci z neznámých zdrojů.
-3. Spusť Dash 407 → **Nastavení** → projdi tři karty (domovská aplikace, oznámení, poloha).
-4. Na Androidu 13+ je před povolením přístupu k oznámením potřeba v *Informacích o aplikaci → ⋮* zvolit **Povolit omezená nastavení**.
+2. Nainstaluj ho přes starou verzi (podpis je stejný, nastavení zůstane).
+3. **Nastavení › Mapy.com**: vlož API klíč z developer.mapy.com a klepni na *Uložit a ověřit*.
+4. Mimo auto (tablet, telefon) zapni v Nastavení **Ukázkový režim**.
 
-Mimo auto (tablet, telefon) zapni v Nastavení **Ukázkový režim**.
+## Zdroje dat
 
-## Data z auta
-
-Aplikace se bez rootu připojuje ke službě `mcu_service` jednotky a čte proud z CAN boxu
-(protokol RZC pro PSA). Dekódování palubního počítače, dveří a výstrah je **zatím neověřené
-na Peugeotu 407** – k ověření slouží obrazovka *Auto → Signály*.
+- Mapové podklady, hledání a trasy: © Seznam.cz a.s. a další – REST API Mapy.com (developer.mapy.com)
+- Počasí: Open-Meteo (bez klíče)
+- Rychlostní limity: © přispěvatelé OpenStreetMap, služba Overpass
+- Data z auta: služba `mcu_service` jednotky a protokol RZC (dekódování zatím ověřujeme)
 
 ## Sestavení
 
-Každý push do větve `main` spustí GitHub Actions (`.github/workflows/build.yml`),
-které sestaví APK a vydají ho jako Release. Na počítači: `gradle :app:assembleDebug`
-(Gradle 8.11+, JDK 17, Android SDK 35).
+Zdroje se nahrávají jako `upload/src.zip`; GitHub Actions je rozbalí, sestaví APK a vydají ho jako Release.
 
 ## Původ kódu
 
-Kód, texty i grafika jsou napsané nově pro tento projekt. Mapy: © Seznam.cz a.s. a další (Mapy.com). Počasí: Open-Meteo. Knihovny: osmdroid, AndroidSVG (Apache 2.0).
-Rozložení (dlaždice s daty
-z auta, hudba, dok) vychází z obecných zvyklostí launcherů do aut. Inspirací byl
-projekt Dashwheel; z něj pochází znalost, jak jednotka K706 předává data aplikacím
-(služba `mcu_service`, rámce protokolu RZC). Jeho kód, texty ani grafika převzaty nebyly,
-protože to jeho licence nedovoluje.
+Kód, texty i grafika jsou napsané nově pro tento projekt. Inspirací byl projekt Dashwheel
+(plochy v kříži, bohaté přizpůsobení); jeho kód, texty ani grafika převzaty nebyly.
+Logo Mapy.com je oficiální logo z api.mapy.com, povinné u mapových podkladů.

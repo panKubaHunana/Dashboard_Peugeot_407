@@ -1,8 +1,7 @@
 package cz.kuba.dash407.car
 
+import cz.kuba.dash407.data.Fix
 import cz.kuba.dash407.data.Gps
-import cz.kuba.dash407.data.NavRepo
-import cz.kuba.dash407.data.TripMeter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -10,6 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import kotlin.math.cos
 import kotlin.math.sin
 
 /** Ukázkový režim: vymyšlená jízda, aby šlo prostředí vyzkoušet i mimo auto. */
@@ -22,18 +22,19 @@ object Demo {
         McuLink.setPaused(true)
         job = scope.launch {
             var t = 0
+            var angle = 0.0
             while (isActive) {
                 val wave = sin(t / 9.0)
                 val speed = (70 + 45 * wave).roundToInt().coerceAtLeast(0)
                 val instant = (5.6 + 2.4 * sin(t / 4.0)).toFloat()
                 val doorOpen = t % 40 in 30..34
+                // Vymyšlená jízda po kruhu kolem centra Hradce Králové.
+                angle += speed / 3.6 / 1500.0
+                val lat = 50.2092 + 0.0135 * cos(angle)
+                val lon = 15.8328 + 0.021 * sin(angle)
+                val bearing = ((Math.toDegrees(angle) + 90.0) % 360.0).toFloat()
+                Gps.demoFix(Fix(lat, lon, speed.toFloat(), bearing, 240.0, 5f, System.currentTimeMillis()))
                 Gps.demoSpeed(speed)
-                TripMeter.demoTick(speed)
-                val toTurn = 900 - (t * 25) % 900
-                NavRepo.demo(
-                    if (toTurn >= 1000) "1 km" else "$toTurn m",
-                    if ((t / 36) % 2 == 0) "Odbočte vpravo na Husova" else "Na kruhovém objezdu 2. výjezd"
-                )
                 CarRepo.update {
                     it.copy(
                         linked = true,
@@ -59,8 +60,8 @@ object Demo {
         job?.cancel()
         job = null
         McuLink.setPaused(false)
+        Gps.demoFix(null)
         Gps.demoSpeed(null)
-        NavRepo.demo(null, null)
         CarRepo.reset()
         CarRepo.update { it.copy(linked = McuLink.isLinked) }
     }
