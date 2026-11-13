@@ -1,0 +1,115 @@
+package cz.kuba.dash407.home
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import cz.kuba.dash407.car.CarRepo
+import cz.kuba.dash407.car.Doors
+import cz.kuba.dash407.data.FuelLog
+import cz.kuba.dash407.ui.DASH
+import cz.kuba.dash407.ui.FitText
+import cz.kuba.dash407.ui.Palette
+import cz.kuba.dash407.ui.Reading
+import cz.kuba.dash407.ui.WidgetCard
+import cz.kuba.dash407.ui.decimal
+import cz.kuba.dash407.ui.drawCar
+
+@Composable
+fun CarComputerWidget(modifier: Modifier) {
+    val car by CarRepo.state.collectAsState()
+    WidgetCard("Palubní počítač", modifier, onClick = { UiBus.open(Panel.CAR) }) {
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
+            Reading(car.instantL100?.let { decimal(it) } ?: DASH, "okamžitá l/100 km")
+            Reading(
+                car.rangeKm?.toString() ?: DASH, "dojezd km",
+                valueColor = if ((car.rangeKm ?: 999) < 80) Palette.Amber else Palette.Text
+            )
+            Reading(car.trip1?.avgL100?.let { decimal(it) } ?: DASH, "průměr l/100 km (Trip 1)")
+            if (!car.linked) Text("Bez dat z auta", color = Palette.Muted, fontSize = 13.sp)
+        }
+    }
+}
+
+@Composable
+fun DoorsWidget(modifier: Modifier) {
+    val car by CarRepo.state.collectAsState()
+    val doors = car.doors
+    WidgetCard("Dveře", modifier) {
+        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            Canvas(Modifier.fillMaxHeight().aspectRatio(0.55f).padding(vertical = 4.dp)) {
+                drawCar(doors ?: Doors())
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    when {
+                        doors == null -> "Čekám na data"
+                        doors.anyOpen -> "Otevřeno"
+                        else -> "Vše zavřeno"
+                    },
+                    color = when {
+                        doors == null -> Palette.Muted
+                        doors.anyOpen -> Palette.Bad
+                        else -> Palette.Good
+                    },
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (car.handbrake == true) Text("Ruční brzda zatažená", color = Palette.Amber, fontSize = 14.sp)
+                if (car.warnings.isNotEmpty()) Text("Výstrahy vozu: ${car.warnings.size}", color = Palette.Amber, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun VoltageWidget(modifier: Modifier) {
+    val car by CarRepo.state.collectAsState()
+    val volts = car.volts
+    WidgetCard("Napětí", modifier, onClick = { UiBus.open(Panel.CAR) }) {
+        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            FitText(
+                volts?.let { decimal(it) + " V" } ?: "– V",
+                Modifier.fillMaxWidth().weight(1f),
+                color = if (volts != null && volts < 11.8) Palette.Bad else Palette.Text,
+                weight = FontWeight.Bold, maxSp = 64f
+            )
+            Text(
+                if (car.linked) "Auto připojeno" else "Bez dat z auta",
+                color = if (car.linked) Palette.Good else Palette.Muted, fontSize = 13.sp, maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+fun FuelWidget(modifier: Modifier, preview: Boolean) {
+    val refuels by FuelLog.entries.collectAsState()
+    val stats = FuelLog.stats(refuels)
+    WidgetCard("Spotřeba", modifier, onClick = if (preview) null else ({ UiBus.open(Panel.FUEL) })) {
+        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            Reading(stats.averageL100?.let { decimal(it) } ?: DASH, "průměr l/100", Modifier.weight(1f))
+            Reading(stats.lastL100?.let { decimal(it) } ?: DASH, "poslední nádrž", Modifier.weight(1f))
+        }
+        if (refuels.isEmpty()) {
+            Text("Klepni a zapiš tankování", color = Palette.Muted, fontSize = 12.sp, modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth())
+        }
+    }
+}

@@ -3,9 +3,16 @@
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Mapové dlaždice a hledání Mapy.com, počasí Open-Meteo, rychlostní limity OpenStreetMap. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Služba Jízda: GPS i ve chvíli, kdy je vpředu navigace. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
     <!-- Seznam aplikací pro spouštěč (Android 11+). -->
     <queries>
+        <package android:name="cz.seznam.mapy" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
@@ -37,7 +44,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Jen kvůli čtení právě hrající hudby (název, interpret, ovládání). Obsah oznámení se nečte. -->
+        <!-- Čtení právě hrající hudby a oznámení navigace Mapy.com (další manévr). Jiná oznámení se nečtou. -->
         <service
             android:name=".data.MediaListener"
             android:exported="true"
@@ -47,5 +54,10 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <service
+            android:name=".service.DriveService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
     </application>
 </manifest>
