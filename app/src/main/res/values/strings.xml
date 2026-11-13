@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Dash 407</string>
+    <string name="media_listener_label">Dash 407 – právě hraje</string>
+
+    <!-- Spodní lišta -->
+    <string name="tab_home">Domů</string>
+    <string name="tab_car">Auto</string>
+    <string name="tab_fuel">Tankování</string>
+    <string name="tab_apps">Aplikace</string>
+    <string name="tab_settings">Nastavení</string>
+
+    <!-- Společné -->
+    <string name="action_save">Uložit</string>
+    <string name="action_cancel">Zrušit</string>
+    <string name="action_delete">Smazat</string>
+    <string name="unit_kmh">km/h</string>
+    <string name="value_km">%1$d km</string>
+    <string name="value_l100">%1$s l/100 km</string>
+    <string name="state_on">zapnuto</string>
+    <string name="state_off">vypnuto</string>
+    <string name="state_applied">zatažená</string>
+    <string name="state_released">povolená</string>
+
+    <!-- Domovská obrazovka -->
+    <string name="home_volts">%1$s V</string>
+    <string name="home_volts_none">– V</string>
+    <string name="home_car_linked">Auto připojeno</string>
+    <string name="home_car_not_linked">Bez dat z auta</string>
+    <string name="home_speed_title">Rychlost</string>
+    <string name="home_trip_title">Palubní počítač</string>
+    <string name="home_trip_instant">okamžitá l/100 km</string>
+    <string name="home_trip_range">dojezd km</string>
+    <string name="home_trip_average">průměr l/100 km (Trip 1)</string>
+    <string name="home_media_title">Právě hraje</string>
+    <string name="home_media_not_allowed">Povol přístup k oznámením v Nastavení</string>
+    <string name="home_media_nothing">Nic nehraje</string>
+    <string name="home_media_unknown">Neznámá skladba</string>
+    <string name="media_previous">Předchozí</string>
+    <string name="media_next">Další</string>
+    <string name="media_play">Přehrát</string>
+    <string name="media_pause">Pozastavit</string>
+    <string name="home_doors_title">Dveře</string>
+    <string name="home_doors_unknown">Čekám na data</string>
+    <string name="home_doors_open">Otevřeno</string>
+    <string name="home_doors_closed">Vše zavřeno</string>
+    <string name="home_handbrake_on">Ruční brzda zatažená</string>
+    <string name="home_warnings_count">Výstrahy vozu: %1$d</string>
+    <string name="home_fuel_title">Spotřeba z tankování</string>
+    <string name="home_fuel_average">dlouhodobý průměr l/100 km</string>
+    <string name="home_fuel_last">poslední nádrž l/100 km</string>
+    <string name="home_fuel_empty">Klepni a zapiš první tankování</string>
+    <string name="home_dock_empty">Dok je prázdný. V Aplikacích podrž ikonu a přidej si ji sem.</string>
+
+    <!-- Auto -->
+    <string name="car_trip1">Trip 1</string>
+    <string name="car_trip2">Trip 2</string>
+    <string name="car_trip_average">průměr l/100 km</string>
+    <string name="car_trip_distance">ujeto km</string>
+    <string name="car_trip_speed">průměrná rychlost km/h</string>
+    <string name="car_status_title">Stav vozu</string>
+    <string name="car_volts">Napětí</string>
+    <string name="car_lights">Světla</string>
+    <string name="car_handbrake">Ruční brzda</string>
+    <string name="car_range">Dojezd</string>
+    <string name="car_instant">Okamžitá spotřeba</string>
+    <string name="car_warnings_title">Výstrahy vozu</string>
+    <string name="car_warnings_none">Auto nehlásí žádnou výstrahu.</string>
+    <string name="car_warning_code">Výstraha s kódem %1$s</string>
+    <string name="car_warnings_hint">Texty výstrah doplníme, až ověříme kódy přímo v autě.</string>
+    <string name="signals_title">Signály z jednotky</string>
+    <string name="signals_hint">Poslední podoba každé zprávy z MCU a CAN boxu. Podle těchto dat ověříme, co Peugeot 407 opravdu posílá.</string>
+    <string name="signals_waiting">Spojeno s jednotkou, čekám na první zprávu. Zapni zapalování.</string>
+    <string name="signals_no_service">Služba jednotky nenalezena. Na tabletu nebo telefonu data z auta nejsou – zkus Ukázkový režim v Nastavení.</string>
+    <string name="signals_entry">%1$s · změn: %2$d</string>
+
+    <!-- Tankování -->
+    <string name="fuel_stats_title">Přehled spotřeby</string>
+    <string name="fuel_average">průměr l/100 km</string>
+    <string name="fuel_last">poslední nádrž</string>
+    <string name="fuel_price_km">Kč na km</string>
+    <string name="fuel_total_litres">litrů celkem</string>
+    <string name="fuel_total_price">Kč celkem</string>
+    <string name="fuel_tracked_km">km v měření</string>
+    <string name="fuel_add">Přidat tankování</string>
+    <string name="fuel_empty">Zatím tu nic není. Spotřeba se spočítá od druhého tankování do plné nádrže.</string>
+    <string name="fuel_row_main">%1$s · %2$d km</string>
+    <string name="fuel_row_detail">%1$s l · %2$s Kč</string>
+    <string name="fuel_row_partial">neplná nádrž</string>
+    <string name="fuel_field_km">Stav tachometru (km)</string>
+    <string name="fuel_field_litres">Natankováno (litry)</string>
+    <string name="fuel_field_price">Cena celkem (Kč)</string>
+    <string name="fuel_field_full">Plná nádrž</string>
+    <string name="fuel_full_hint">Spotřeba se počítá mezi dvěma plnými nádržemi. Když netankuješ doplna, odškrtni to.</string>
+    <string name="fuel_last_km">Minule: %1$d km</string>
+    <string name="fuel_error_km">Musí být víc než minule (%1$d km)</string>
+    <string name="fuel_delete_title">Smazat tankování?</string>
+    <string name="fuel_delete_text">Záznam při %1$d km se smaže natrvalo.</string>
+
+    <!-- Aplikace -->
+    <string name="apps_hint">Klepnutím aplikaci spustíš. Podržením ji přidáš do doku nebo z něj odebereš.</string>
+    <string name="apps_dock_full">Dok je plný (nejvýš %1$d aplikací)</string>
+    <string name="apps_in_dock">V doku</string>
+
+    <!-- Nastavení -->
+    <string name="settings_home_title">Výchozí domovská obrazovka</string>
+    <string name="settings_home_text">Nastav Dash 407 jako domovskou aplikaci, aby se spouštěl po startu rádia a po stisku Domů. Stejnou cestou jde kdykoli vrátit původní prostředí.</string>
+    <string name="settings_home_button">Vybrat domovskou aplikaci</string>
+    <string name="settings_media_title">Právě hrající hudba</string>
+    <string name="settings_media_text">Aby dlaždice ukazovala skladbu a ovládala přehrávání, potřebuje přístup k oznámením. Na Androidu 13 a novějším nejdřív v Informacích o aplikaci povol „omezená nastavení“.</string>
+    <string name="settings_media_allowed">Přístup k oznámením je povolený.</string>
+    <string name="settings_media_button">Otevřít přístup k oznámením</string>
+    <string name="settings_location_title">Rychlost z GPS</string>
+    <string name="settings_location_text">Rychloměr na domovské obrazovce bere rychlost z GPS. K tomu potřebuje oprávnění k poloze.</string>
+    <string name="settings_location_allowed">Oprávnění k poloze je udělené.</string>
+    <string name="settings_location_button">Povolit polohu</string>
+    <string name="settings_demo_title">Ukázkový režim</string>
+    <string name="settings_demo_text">Vymyšlená jízda pro vyzkoušení prostředí mimo auto. Skutečná data z auta se po dobu ukázky nezobrazují.</string>
+    <string name="settings_about_title">O aplikaci</string>
+    <string name="settings_about_version">Dash 407, verze %1$s</string>
+    <string name="settings_about_text">Vlastní prostředí pro Peugeot 407 SW s jednotkou ROCO K706. Kód je původní.</string>
+</resources>
