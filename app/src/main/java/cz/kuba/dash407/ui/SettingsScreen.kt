@@ -69,6 +69,9 @@ fun SettingsScreen() {
     val work by Prefs.workAddress.collectAsState()
     val split by Prefs.splitScreen.collectAsState()
     val drive by Prefs.driveService.collectAsState()
+    val navInApp by Prefs.navInApp.collectAsState()
+    val navVoice by Prefs.navVoice.collectAsState()
+    val navHeading by Prefs.navHeadingUp.collectAsState()
     val pages by LayoutStore.pages.collectAsState()
     var keyText by remember { mutableStateOf(mapyKey) }
     var keyResult by remember { mutableStateOf<String?>(null) }
@@ -114,6 +117,20 @@ fun SettingsScreen() {
             SwitchLine("Otevírat Mapy.com v rozdělené obrazovce (zkušebně – jen pokud to jednotka umí)", split) { Prefs.setSplitScreen(it) }
             if (!Mapy.isInstalled(context)) {
                 Text("Aplikace Mapy.com v rádiu není. Nainstaluj ji z Obchodu Play.", color = Palette.Amber, fontSize = 15.sp)
+            }
+        }
+
+        Card("Navigace", "Navigace krok za krokem přímo v Dash 407: mapa Mapy.com, trasa a české pokyny z otevřeného routeru Valhalla (OpenStreetMap), hlas z převodu textu na řeč v rádiu. " +
+            "Když jednotka nemá českou řeč, nainstaluj „Převod textu na řeč Google“ a v nastavení Androidu zvol češtinu.") {
+            SwitchLine("Navigovat přímo v Dash 407 (vypnuto = předat aplikaci Mapy.com)", navInApp) { Prefs.setNavInApp(it) }
+            SwitchLine("Hlasové pokyny", navVoice) { Prefs.setNavVoice(it) }
+            SwitchLine("Mapa natočená po směru jízdy", navHeading) { Prefs.setNavHeadingUp(it) }
+            Spacer(Modifier.height(6.dp))
+            OutlinedButton(onClick = { cz.kuba.dash407.nav.NavEngine.say("Za 300 metrů odbočte vpravo.") }, shape = RoundedCornerShape(16.dp)) {
+                Text("Vyzkoušet hlas", fontSize = 16.sp)
+            }
+            if (!cz.kuba.dash407.nav.NavEngine.voiceAvailable()) {
+                Text("Česká řeč zatím není připravená nebo v rádiu chybí.", color = Palette.Amber, fontSize = 14.sp)
             }
         }
 

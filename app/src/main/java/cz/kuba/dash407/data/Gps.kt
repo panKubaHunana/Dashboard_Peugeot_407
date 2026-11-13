@@ -95,6 +95,7 @@ object Gps {
         Perf.onFix(f)
         SpeedLimit.onFix(f)
         RouteState.onFix(f)
+        cz.kuba.dash407.nav.NavEngine.onFix(f)
     }
 
     fun hasPermission(context: Context): Boolean =

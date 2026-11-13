@@ -68,6 +68,7 @@ import cz.kuba.dash407.data.AppsRepo
 import cz.kuba.dash407.data.Gps
 import cz.kuba.dash407.data.Prefs
 import cz.kuba.dash407.nav.Mapy
+import cz.kuba.dash407.nav.Navigator
 import cz.kuba.dash407.nav.Place
 import cz.kuba.dash407.nav.Recent
 import cz.kuba.dash407.nav.RouteState
@@ -334,7 +335,7 @@ fun DestinationPanel() {
         val q = query.trim()
         if (q.isEmpty()) return
         if (key.isBlank()) {
-            info = "Bez API klíče hledá až aplikace Mapy.com – klepni na „Navigovat“."
+            info = "Bez API klíče Mapy.com nejde hledat v rádiu – „Navigovat“ předá cíl aplikaci Mapy.com."
             results = emptyList()
             return
         }
@@ -372,9 +373,9 @@ fun DestinationPanel() {
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (query.isNotBlank()) ActionChip(Icons.Filled.Navigation, "Navigovat na „${query.take(18)}“", true) { Mapy.navigate(context, query.trim()) }
-            if (home.isNotBlank()) ActionChip(Icons.Filled.Home, "Domů", false) { Mapy.navigate(context, home) }
-            if (work.isNotBlank()) ActionChip(Icons.Filled.Work, "Práce", false) { Mapy.navigate(context, work) }
+            if (query.isNotBlank()) ActionChip(Icons.Filled.Navigation, "Navigovat na „${query.take(18)}“", true) { Navigator.go(context, query.trim()) }
+            if (home.isNotBlank()) ActionChip(Icons.Filled.Home, "Domů", false) { Navigator.go(context, home) }
+            if (work.isNotBlank()) ActionChip(Icons.Filled.Work, "Práce", false) { Navigator.go(context, work) }
         }
         val msg = info ?: routeError
         if (msg != null) {
@@ -389,14 +390,14 @@ fun DestinationPanel() {
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (results.isEmpty() && recent.isNotEmpty()) {
                 item { Text("NAPOSLEDY", color = look.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp) }
-                items(recent) { p -> PlaceRow(p, Icons.Filled.History, key.isNotBlank(), { plan(p) }) { Mapy.navigate(context, p) } }
+                items(recent) { p -> PlaceRow(p, Icons.Filled.History, key.isNotBlank(), { plan(p) }) { Navigator.go(context, p) } }
             }
-            items(results) { p -> PlaceRow(p, Icons.Filled.Place, key.isNotBlank(), { plan(p) }) { Recent.add(p); Mapy.navigate(context, p) } }
+            items(results) { p -> PlaceRow(p, Icons.Filled.Place, key.isNotBlank(), { plan(p) }) { Recent.add(p); Navigator.go(context, p) } }
             if (results.isEmpty() && recent.isEmpty()) {
                 item {
                     Text(
                         "Napiš cíl. S API klíčem Mapy.com ti najdu místa a ukážu trasu na mapě v rádiu; " +
-                            "tlačítkem Navigovat spustíš hlasovou navigaci v aplikaci Mapy.com. Adresu Domů a Práce nastavíš v Nastavení.",
+                            "tlačítkem Navigovat spustíš navigaci s hlasovými pokyny přímo v Dash 407 (nebo v aplikaci Mapy.com – volba v Nastavení). Adresu Domů a Práce nastavíš v Nastavení.",
                         color = Palette.Muted, fontSize = 15.sp
                     )
                 }

@@ -16,6 +16,8 @@ import kotlin.math.sin
 object Demo {
     private val scope = CoroutineScope(Dispatchers.Default)
     private var job: Job? = null
+    private var demoRoute: Any? = null
+    private var demoAlong = 0.0
 
     fun start() {
         if (job != null) return
@@ -28,12 +30,27 @@ object Demo {
                 val speed = (70 + 45 * wave).roundToInt().coerceAtLeast(0)
                 val instant = (5.6 + 2.4 * sin(t / 4.0)).toFloat()
                 val doorOpen = t % 40 in 30..34
-                // Vymyšlená jízda po kruhu kolem centra Hradce Králové.
-                angle += speed / 3.6 / 1500.0
-                val lat = 50.2092 + 0.0135 * cos(angle)
-                val lon = 15.8328 + 0.021 * sin(angle)
-                val bearing = ((Math.toDegrees(angle) + 90.0) % 360.0).toFloat()
-                Gps.demoFix(Fix(lat, lon, speed.toFloat(), bearing, 240.0, 5f, System.currentTimeMillis()))
+                val nav = cz.kuba.dash407.nav.NavEngine.state.value
+                val navRoute = nav.route
+                if (nav.active && navRoute != null && !nav.arrived) {
+                    // Při navigaci jede ukázka po naplánované trase.
+                    if (navRoute !== demoRoute) {
+                        demoRoute = navRoute
+                        demoAlong = nav.alongM
+                    }
+                    demoAlong += speed / 3.6
+                    val pb = cz.kuba.dash407.nav.NavEngine.pointAt(demoAlong)
+                    if (pb != null) {
+                        Gps.demoFix(Fix(pb.first.lat, pb.first.lon, speed.toFloat(), pb.second, 240.0, 5f, System.currentTimeMillis()))
+                    }
+                } else {
+                    // Vymyšlená jízda po kruhu kolem centra Hradce Králové.
+                    angle += speed / 3.6 / 1500.0
+                    val lat = 50.2092 + 0.0135 * cos(angle)
+                    val lon = 15.8328 + 0.021 * sin(angle)
+                    val bearing = ((Math.toDegrees(angle) + 90.0) % 360.0).toFloat()
+                    Gps.demoFix(Fix(lat, lon, speed.toFloat(), bearing, 240.0, 5f, System.currentTimeMillis()))
+                }
                 Gps.demoSpeed(speed)
                 CarRepo.update {
                     it.copy(

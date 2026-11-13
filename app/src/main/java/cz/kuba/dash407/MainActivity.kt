@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
         Trip.init()
         Recent.init()
         MapyLogo.init(this)
+        cz.kuba.dash407.nav.NavEngine.init(this)
         FuelLog.init(this)
         McuLink.start(packageName)
         AppsRepo.reload(this)

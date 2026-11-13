@@ -14,6 +14,9 @@ object Prefs {
     private const val KEY_WORK = "addr_work"
     private const val KEY_SPLIT = "split_screen"
     private const val KEY_DRIVE = "drive_service"
+    private const val KEY_NAV_IN_APP = "nav_in_app"
+    private const val KEY_NAV_VOICE = "nav_voice"
+    private const val KEY_NAV_HEADING = "nav_heading_up"
     const val MAX_FAVORITES = 8
 
     private lateinit var store: SharedPreferences
@@ -40,6 +43,20 @@ object Prefs {
     private val _drive = MutableStateFlow(true)
     val driveService: StateFlow<Boolean> = _drive
 
+    private val _navInApp = MutableStateFlow(true)
+    /** Navigovat přímo v Dash 407 (true), nebo předat aplikaci Mapy.com (false). */
+    val navInApp: StateFlow<Boolean> = _navInApp
+
+    private val _navVoice = MutableStateFlow(true)
+    val navVoice: StateFlow<Boolean> = _navVoice
+
+    private val _navHeadingUp = MutableStateFlow(true)
+    val navHeadingUp: StateFlow<Boolean> = _navHeadingUp
+
+    fun setNavInApp(v: Boolean) { _navInApp.value = v; store.edit().putBoolean(KEY_NAV_IN_APP, v).apply() }
+    fun setNavVoice(v: Boolean) { _navVoice.value = v; store.edit().putBoolean(KEY_NAV_VOICE, v).apply() }
+    fun setNavHeadingUp(v: Boolean) { _navHeadingUp.value = v; store.edit().putBoolean(KEY_NAV_HEADING, v).apply() }
+
     fun init(context: Context) {
         if (::store.isInitialized) return
         store = context.applicationContext.getSharedPreferences("dash407", Context.MODE_PRIVATE)
@@ -50,6 +67,9 @@ object Prefs {
         _work.value = store.getString(KEY_WORK, "") ?: ""
         _split.value = store.getBoolean(KEY_SPLIT, false)
         _drive.value = store.getBoolean(KEY_DRIVE, true)
+        _navInApp.value = store.getBoolean(KEY_NAV_IN_APP, true)
+        _navVoice.value = store.getBoolean(KEY_NAV_VOICE, true)
+        _navHeadingUp.value = store.getBoolean(KEY_NAV_HEADING, true)
     }
 
     /** Společné úložiště i pro rozložení ploch, vzhled a jízdu. */
