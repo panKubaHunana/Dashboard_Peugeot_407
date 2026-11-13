@@ -69,6 +69,8 @@ import cz.kuba.dash407.data.Gps
 import cz.kuba.dash407.data.Prefs
 import cz.kuba.dash407.nav.Mapy
 import cz.kuba.dash407.nav.Navigator
+import cz.kuba.dash407.nav.MapSources
+import cz.kuba.dash407.nav.Nominatim
 import cz.kuba.dash407.nav.Place
 import cz.kuba.dash407.nav.Recent
 import cz.kuba.dash407.nav.RouteState
@@ -276,11 +278,19 @@ fun AppearancePanel() {
                 SwitchRow("Sekundy v hodinách", a.seconds) { v -> AppearanceStore.update { it.copy(seconds = v) } }
                 Section("Mapa")
                 SwitchRow("Tmavá (noční) mapa", a.darkMap) { v -> AppearanceStore.update { it.copy(darkMap = v) } }
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for ((id, name) in Mapy.styles) {
-                        Pill(name, a.mapStyle == id) {
-                            AppearanceStore.update { it.copy(mapStyle = id) }
-                            Tiles.clear()
+                for (group in MapSources.all.map { it.group }.distinct()) {
+                    val note = when (group) {
+                        "Mapy.com" -> "klíč Mapy.com"
+                        "Google" -> "klíč Google, placené nad limit"
+                        else -> "zdarma, bez klíče"
+                    }
+                    Text("$group · $note", color = Palette.Muted, fontSize = 13.sp)
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        for (src in MapSources.all.filter { it.group == group }) {
+                            Pill(src.name, a.mapStyle == src.id) {
+                                AppearanceStore.update { it.copy(mapStyle = src.id) }
+                                Tiles.clear()
+                            }
                         }
                     }
                 }
@@ -334,16 +344,14 @@ fun DestinationPanel() {
     fun search() {
         val q = query.trim()
         if (q.isEmpty()) return
-        if (key.isBlank()) {
-            info = "Bez API klíče Mapy.com nejde hledat v rádiu – „Navigovat“ předá cíl aplikaci Mapy.com."
-            results = emptyList()
-            return
-        }
         searching = true
         info = null
         scope.launch {
             try {
-                val list = withContext(Dispatchers.IO) { Mapy.search(q, Gps.fix.value, key) }
+                // S klíčem hledá Mapy.com, bez něj otevřená data OpenStreetMap (Nominatim).
+                val list = withContext(Dispatchers.IO) {
+                    if (key.isNotBlank()) Mapy.search(q, Gps.fix.value, key) else Nominatim.search(q, Gps.fix.value)
+                }
                 results = list
                 if (list.isEmpty()) info = "Nic jsem nenašel"
             } catch (e: Exception) {
@@ -390,13 +398,13 @@ fun DestinationPanel() {
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (results.isEmpty() && recent.isNotEmpty()) {
                 item { Text("NAPOSLEDY", color = look.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp) }
-                items(recent) { p -> PlaceRow(p, Icons.Filled.History, key.isNotBlank(), { plan(p) }) { Navigator.go(context, p) } }
+                items(recent) { p -> PlaceRow(p, Icons.Filled.History, true, { plan(p) }) { Navigator.go(context, p) } }
             }
-            items(results) { p -> PlaceRow(p, Icons.Filled.Place, key.isNotBlank(), { plan(p) }) { Recent.add(p); Navigator.go(context, p) } }
+            items(results) { p -> PlaceRow(p, Icons.Filled.Place, true, { plan(p) }) { Recent.add(p); Navigator.go(context, p) } }
             if (results.isEmpty() && recent.isEmpty()) {
                 item {
                     Text(
-                        "Napiš cíl. S API klíčem Mapy.com ti najdu místa a ukážu trasu na mapě v rádiu; " +
+                        "Napiš cíl. Hledám přes Mapy.com (s klíčem) nebo v otevřených datech OpenStreetMap (bez klíče) a ukážu trasu na mapě; " +
                             "tlačítkem Navigovat spustíš navigaci s hlasovými pokyny přímo v Dash 407 (nebo v aplikaci Mapy.com – volba v Nastavení). Adresu Domů a Práce nastavíš v Nastavení.",
                         color = Palette.Muted, fontSize = 15.sp
                     )

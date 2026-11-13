@@ -13,6 +13,10 @@
     <!-- Seznam aplikací pro spouštěč (Android 11+). -->
     <queries>
         <package android:name="cz.seznam.mapy" />
+        <package android:name="com.google.android.apps.maps" />
+        <package android:name="app.organicmaps" />
+        <package android:name="net.osmand" />
+        <package android:name="net.osmand.plus" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />

@@ -301,23 +301,29 @@ object Navigator {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     fun go(context: Context, place: Place) {
-        if (Prefs.navInApp.value) {
-            NavEngine.start(context, place)
-            cz.kuba.dash407.home.UiBus.close()
-        } else Mapy.navigate(context, place)
+        when (Prefs.navTarget.value) {
+            "dash" -> {
+                NavEngine.start(context, place)
+                cz.kuba.dash407.home.UiBus.close()
+            }
+            "mapy" -> Mapy.navigate(context, place)
+            else -> ExternalNav.navigate(context, Prefs.navTarget.value, place)
+        }
     }
 
     /** Cíl zadaný textem (Domů, Práce): dohledá se přes Mapy.com, pak se navigace spustí. */
     fun go(context: Context, address: String) {
         val key = Prefs.mapyKey.value
-        if (!Prefs.navInApp.value || key.isBlank()) {
-            if (Prefs.navInApp.value) Toast.makeText(context, "Bez API klíče Mapy.com předávám navigaci aplikaci Mapy.com", Toast.LENGTH_SHORT).show()
-            Mapy.navigate(context, address)
-            return
-        }
+        val target = Prefs.navTarget.value
+        if (target == "mapy") { Mapy.navigate(context, address); return }
+        if (target == "google" || target == "organic" || target == "osmand") { ExternalNav.navigate(context, target, address); return }
         scope.launch {
             try {
-                val p = withContext(Dispatchers.IO) { Mapy.search(address, Gps.fix.value, key).firstOrNull() }
+                val p = withContext(Dispatchers.IO) {
+                    // S klíčem hledá Mapy.com, bez něj otevřená data OpenStreetMap (Nominatim).
+                    if (key.isNotBlank()) Mapy.search(address, Gps.fix.value, key).firstOrNull()
+                    else Nominatim.search(address, Gps.fix.value).firstOrNull()
+                }
                 if (p != null) {
                     NavEngine.start(context, p.copy(name = address))
                     cz.kuba.dash407.home.UiBus.close()
@@ -326,6 +332,63 @@ object Navigator {
             } catch (e: Exception) {
                 Toast.makeText(context, "Hledání adresy selhalo: ${e.message}", Toast.LENGTH_LONG).show()
             }
+        }
+    }
+}
+
+
+/** Předání navigace jiné aplikaci: Google Mapy, Organic Maps, OsmAnd. */
+object ExternalNav {
+    val targets = listOf(
+        "dash" to "Dash 407",
+        "mapy" to "Mapy.com",
+        "google" to "Google Mapy",
+        "organic" to "Organic Maps",
+        "osmand" to "OsmAnd"
+    )
+
+    private fun packages(target: String): List<String> = when (target) {
+        "google" -> listOf("com.google.android.apps.maps")
+        "organic" -> listOf("app.organicmaps")
+        "osmand" -> listOf("net.osmand.plus", "net.osmand")
+        else -> emptyList()
+    }
+
+    fun label(target: String): String = targets.firstOrNull { it.first == target }?.second ?: target
+
+    fun installed(context: Context, target: String): Boolean =
+        target == "dash" || (if (target == "mapy") Mapy.isInstalled(context) else
+            packages(target).any { context.packageManager.getLaunchIntentForPackage(it) != null })
+
+    fun navigate(context: Context, target: String, place: Place) {
+        val uri = if (target == "google")
+            android.net.Uri.parse(String.format(Locale.US, "google.navigation:q=%.6f,%.6f&mode=d", place.lat, place.lon))
+        else
+            android.net.Uri.parse(String.format(Locale.US, "geo:%.6f,%.6f?q=%.6f,%.6f(%s)", place.lat, place.lon, place.lat, place.lon, android.net.Uri.encode(place.name)))
+        open(context, target, uri)
+    }
+
+    fun navigate(context: Context, target: String, address: String) {
+        val uri = if (target == "google") android.net.Uri.parse("google.navigation:q=" + android.net.Uri.encode(address))
+        else android.net.Uri.parse("geo:0,0?q=" + android.net.Uri.encode(address))
+        open(context, target, uri)
+    }
+
+    private fun open(context: Context, target: String, uri: android.net.Uri) {
+        val pkg = packages(target).firstOrNull { context.packageManager.getLaunchIntentForPackage(it) != null }
+        if (pkg == null) {
+            Toast.makeText(context, "${label(target)} v rádiu není nainstalovaná", Toast.LENGTH_LONG).show()
+            return
+        }
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri).setPackage(pkg)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (Prefs.splitScreen.value) {
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT or android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+        }
+        try {
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "${label(target)} se nepodařilo otevřít", Toast.LENGTH_LONG).show()
         }
     }
 }

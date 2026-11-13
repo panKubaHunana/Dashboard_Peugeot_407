@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -69,7 +70,10 @@ fun SettingsScreen() {
     val work by Prefs.workAddress.collectAsState()
     val split by Prefs.splitScreen.collectAsState()
     val drive by Prefs.driveService.collectAsState()
-    val navInApp by Prefs.navInApp.collectAsState()
+    val navTarget by Prefs.navTarget.collectAsState()
+    val googleKey by Prefs.googleKey.collectAsState()
+    var googleText by remember { mutableStateOf(googleKey) }
+    var googleResult by remember { mutableStateOf<String?>(null) }
     val navVoice by Prefs.navVoice.collectAsState()
     val navHeading by Prefs.navHeadingUp.collectAsState()
     val pages by LayoutStore.pages.collectAsState()
@@ -122,7 +126,15 @@ fun SettingsScreen() {
 
         Card("Navigace", "Navigace krok za krokem přímo v Dash 407: mapa Mapy.com, trasa a české pokyny z otevřeného routeru Valhalla (OpenStreetMap), hlas z převodu textu na řeč v rádiu. " +
             "Když jednotka nemá českou řeč, nainstaluj „Převod textu na řeč Google“ a v nastavení Androidu zvol češtinu.") {
-            SwitchLine("Navigovat přímo v Dash 407 (vypnuto = předat aplikaci Mapy.com)", navInApp) { Prefs.setNavInApp(it) }
+            Text("Tlačítko Navigovat spustí navigaci v:", color = Palette.Text, fontSize = 16.sp)
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for ((id, name) in cz.kuba.dash407.nav.ExternalNav.targets) {
+                    val ok = cz.kuba.dash407.nav.ExternalNav.installed(context, id)
+                    Pill(if (ok) name else "$name (není)", navTarget == id) { Prefs.setNavTarget(id) }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
             SwitchLine("Hlasové pokyny", navVoice) { Prefs.setNavVoice(it) }
             SwitchLine("Mapa natočená po směru jízdy", navHeading) { Prefs.setNavHeadingUp(it) }
             Spacer(Modifier.height(6.dp))
@@ -132,6 +144,33 @@ fun SettingsScreen() {
             if (!cz.kuba.dash407.nav.NavEngine.voiceAvailable()) {
                 Text("Česká řeč zatím není připravená nebo v rádiu chybí.", color = Palette.Amber, fontSize = 14.sp)
             }
+        }
+
+        Card("Google mapy", "Podklady Google (mapa, satelit, terén) přes oficiální Map Tiles API. Klíč vytvoříš v Google Cloud Console: " +
+            "založ projekt, připoj fakturační účet, zapni „Map Tiles API“ a vytvoř API klíč. Prvních 100 000 dlaždic měsíčně je zdarma, " +
+            "pak Google účtuje (cca 0,60 USD za 1 000). Podklad pak vybereš ve Vzhledu › Mapa.") {
+            OutlinedTextField(
+                value = googleText, onValueChange = { googleText = it.trim() }, singleLine = true,
+                label = { Text("Google API klíč") }, modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    Prefs.setGoogleKey(googleText)
+                    Tiles.clear()
+                    googleResult = "Ověřuji…"
+                    scope.launch { googleResult = withContext(Dispatchers.IO) { cz.kuba.dash407.nav.GoogleTiles.test(googleText) } }
+                }, shape = RoundedCornerShape(16.dp)) { Text("Uložit a ověřit", fontSize = 16.sp) }
+                OutlinedButton(onClick = { Mapy.openWeb(context, "https://console.cloud.google.com/google/maps-apis/") }, shape = RoundedCornerShape(16.dp)) {
+                    Text("Google Cloud", fontSize = 16.sp)
+                }
+            }
+            googleResult?.let { Text(it, color = Palette.Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp)) }
+        }
+
+        Card("Otevřené mapy", "OpenStreetMap a OpenTopoMap fungují bez klíče a zdarma. Bez klíče Mapy.com se cíle hledají v otevřených datech OpenStreetMap " +
+            "(Nominatim) a trasa i pokyny jdou z otevřeného routeru Valhalla. Dlaždice se pamatují 7 dní, jak žádají pravidla OpenStreetMap.") {
+            Text("Podklad přepneš ve Vzhledu (✦) › Mapa.", color = Palette.Text, fontSize = 15.sp)
         }
 
         Card("Rychlé cíle", "Tlačítka Domů a Práce na widgetu Navigace. Stačí adresa, Mapy.com ji samy najdou.") {

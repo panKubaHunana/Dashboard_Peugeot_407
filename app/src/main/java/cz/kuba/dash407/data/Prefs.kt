@@ -17,6 +17,8 @@ object Prefs {
     private const val KEY_NAV_IN_APP = "nav_in_app"
     private const val KEY_NAV_VOICE = "nav_voice"
     private const val KEY_NAV_HEADING = "nav_heading_up"
+    private const val KEY_NAV_TARGET = "nav_target"
+    private const val KEY_GOOGLE = "google_key"
     const val MAX_FAVORITES = 8
 
     private lateinit var store: SharedPreferences
@@ -53,7 +55,26 @@ object Prefs {
     private val _navHeadingUp = MutableStateFlow(true)
     val navHeadingUp: StateFlow<Boolean> = _navHeadingUp
 
-    fun setNavInApp(v: Boolean) { _navInApp.value = v; store.edit().putBoolean(KEY_NAV_IN_APP, v).apply() }
+    fun setNavInApp(v: Boolean) { setNavTarget(if (v) "dash" else "mapy") }
+
+    private val _navTarget = MutableStateFlow("dash")
+    /** Kde se navigace spustí: dash, mapy, google, organic, osmand. */
+    val navTarget: StateFlow<String> = _navTarget
+
+    fun setNavTarget(v: String) {
+        _navTarget.value = v
+        _navInApp.value = v == "dash"
+        store.edit().putString(KEY_NAV_TARGET, v).putBoolean(KEY_NAV_IN_APP, v == "dash").apply()
+    }
+
+    private val _googleKey = MutableStateFlow("")
+    /** API klíč Google Maps Platform (Map Tiles API) pro Google podklady. */
+    val googleKey: StateFlow<String> = _googleKey
+
+    fun setGoogleKey(v: String) {
+        _googleKey.value = v.trim()
+        store.edit().putString(KEY_GOOGLE, v.trim()).apply()
+    }
     fun setNavVoice(v: Boolean) { _navVoice.value = v; store.edit().putBoolean(KEY_NAV_VOICE, v).apply() }
     fun setNavHeadingUp(v: Boolean) { _navHeadingUp.value = v; store.edit().putBoolean(KEY_NAV_HEADING, v).apply() }
 
@@ -68,6 +89,9 @@ object Prefs {
         _split.value = store.getBoolean(KEY_SPLIT, false)
         _drive.value = store.getBoolean(KEY_DRIVE, true)
         _navInApp.value = store.getBoolean(KEY_NAV_IN_APP, true)
+        _navTarget.value = store.getString(KEY_NAV_TARGET, null) ?: if (_navInApp.value) "dash" else "mapy"
+        _navInApp.value = _navTarget.value == "dash"
+        _googleKey.value = store.getString(KEY_GOOGLE, "") ?: ""
         _navVoice.value = store.getBoolean(KEY_NAV_VOICE, true)
         _navHeadingUp.value = store.getBoolean(KEY_NAV_HEADING, true)
     }

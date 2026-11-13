@@ -55,10 +55,6 @@ object RouteState {
     fun plan(place: Place, onDone: (Boolean) -> Unit = {}) {
         val key = Prefs.mapyKey.value
         val from = Gps.fix.value
-        if (key.isBlank()) {
-            _error.value = "Pro plánování trasy zadej API klíč Mapy.com v Nastavení"
-            onDone(false); return
-        }
         if (from == null) {
             _error.value = "Čekám na polohu z GPS"
             onDone(false); return
@@ -67,7 +63,14 @@ object RouteState {
         _error.value = null
         scope.launch {
             try {
-                val r = withContext(Dispatchers.IO) { Mapy.route(from, place, key) }
+                val r = withContext(Dispatchers.IO) {
+                    if (key.isNotBlank()) Mapy.route(from, place, key)
+                    else {
+                        // Bez klíče Mapy.com: trasa z otevřeného routeru Valhalla (OpenStreetMap).
+                        val v = Valhalla.route(from, place)
+                        Route(place, v.points, v.lengthM.toInt(), v.timeS.toInt(), System.currentTimeMillis())
+                    }
+                }
                 set(r)
                 Recent.add(place)
                 onDone(true)

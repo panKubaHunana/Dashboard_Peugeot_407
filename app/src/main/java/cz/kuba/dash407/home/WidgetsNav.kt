@@ -65,6 +65,9 @@ import cz.kuba.dash407.data.Gps
 import cz.kuba.dash407.data.Prefs
 import cz.kuba.dash407.nav.Mapy
 import cz.kuba.dash407.nav.MapyLogo
+import cz.kuba.dash407.nav.MapSources
+import cz.kuba.dash407.nav.KeyNeed
+import cz.kuba.dash407.nav.GoogleTiles
 import cz.kuba.dash407.nav.NavEngine
 import cz.kuba.dash407.nav.NavNotice
 import cz.kuba.dash407.nav.Navigator
@@ -125,9 +128,17 @@ private val nightFilter: ColorFilter by lazy {
 
 /** Mapa z dlaždic Mapy.com s autem a trasou. Bez posouvání prstem – vždy sleduje auto. */
 @Composable
-fun MapView(modifier: Modifier, zoom: Int) {
+fun MapView(modifier: Modifier, zoomIn: Int) {
     val look = LocalLook.current
-    val key by Prefs.mapyKey.collectAsState()
+    val mapyKey by Prefs.mapyKey.collectAsState()
+    val googleKey by Prefs.googleKey.collectAsState()
+    val src = MapSources.of(look.mapStyle)
+    val zoom = zoomIn.coerceAtMost(src.maxZoom)
+    val hasKey = when (src.key) {
+        KeyNeed.NONE -> true
+        KeyNeed.MAPY -> mapyKey.isNotBlank()
+        KeyNeed.GOOGLE -> googleKey.isNotBlank()
+    }
     val fix by Gps.fix.collectAsState()
     val route by RouteState.route.collectAsState()
     val nav by NavEngine.state.collectAsState()
@@ -136,7 +147,7 @@ fun MapView(modifier: Modifier, zoom: Int) {
     val density = LocalDensity.current.density
     val tileSize = 256f * (density * 0.8f).coerceAtLeast(1f)
     val filter = if (look.darkMap) nightFilter else null
-    val style = look.mapStyle
+    val style = src.id
     val accent = look.accent
     Canvas(modifier.background(if (look.darkMap) Color(0xFF1B2430) else Color(0xFFE8E4DA))) {
         if (version < 0) return@Canvas // čtení verze: po načtení dlaždice se mapa překreslí
@@ -155,7 +166,7 @@ fun MapView(modifier: Modifier, zoom: Int) {
         // Při navigaci se mapa otáčí po směru jízdy (lze vypnout v Nastavení).
         val rotation = if (navigating && headingUp && f?.bearing != null) -(f?.bearing ?: 0f) else 0f
         rotate(rotation, pivot) {
-            if (key.isNotBlank()) {
+            if (hasKey) {
                 val reach = if (rotation != 0f) kotlin.math.hypot(size.width.toDouble(), size.height.toDouble()) else 0.0
                 val x0 = floor((left - reach) / tileSize).toInt()
                 val x1 = floor((left + size.width + reach) / tileSize).toInt()
@@ -165,7 +176,7 @@ fun MapView(modifier: Modifier, zoom: Int) {
                 for (tx in x0..x1) for (ty in y0..y1) {
                     val ox = (tx * tileSize - left).roundToInt()
                     val oy = (ty * tileSize - top).roundToInt()
-                    val img = Tiles.get(style, zoom, tx, ty, key)
+                    val img = Tiles.get(style, zoom, tx, ty)
                     if (img != null) {
                         drawImage(img, dstOffset = IntOffset(ox, oy), dstSize = IntSize(sz, sz), colorFilter = filter)
                     } else if (zoom > 1) {
@@ -355,7 +366,15 @@ fun NavBanner(nav: cz.kuba.dash407.nav.NavState, modifier: Modifier) {
 fun MapWidget(modifier: Modifier, preview: Boolean) {
     val context = LocalContext.current
     val look = LocalLook.current
-    val key by Prefs.mapyKey.collectAsState()
+    val mapyKey by Prefs.mapyKey.collectAsState()
+    val googleKey by Prefs.googleKey.collectAsState()
+    val src = MapSources.of(look.mapStyle)
+    val hasKey = when (src.key) {
+        KeyNeed.NONE -> true
+        KeyNeed.MAPY -> mapyKey.isNotBlank()
+        KeyNeed.GOOGLE -> googleKey.isNotBlank()
+    }
+    val googleCopyright by GoogleTiles.copyright.collectAsState()
     val route by RouteState.route.collectAsState()
     val progress by RouteState.progress.collectAsState()
     val nav by NavEngine.state.collectAsState()
@@ -377,7 +396,18 @@ fun MapWidget(modifier: Modifier, preview: Boolean) {
     val shape = RoundedCornerShape(look.corner)
     Box(modifier.fillMaxSize().clip(shape)) {
         MapView(Modifier.fillMaxSize(), shownZoom)
-        if (key.isBlank()) {
+        if (src.key == KeyNeed.GOOGLE && hasKey && !preview) {
+            // Text autorských práv Googlu se mění podle výřezu mapy: obnovujeme ho jednou za minutu.
+            androidx.compose.runtime.LaunchedEffect(src.id) {
+                while (true) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        GoogleTiles.refreshCopyright(src.id.removePrefix("g_"), shownZoom, Gps.fix.value)
+                    }
+                    kotlinx.coroutines.delay(60_000)
+                }
+            }
+        }
+        if (!hasKey) {
             Column(
                 Modifier.align(Alignment.Center).padding(24.dp).clip(RoundedCornerShape(16.dp))
                     .background(Color.Black.copy(alpha = 0.6f)).clickable(enabled = !preview) { UiBus.open(Panel.SETTINGS) }
@@ -385,32 +415,41 @@ fun MapWidget(modifier: Modifier, preview: Boolean) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(Icons.Filled.Map, null, tint = look.accent, modifier = Modifier.size(36.dp))
-                Text("Mapa Mapy.com potřebuje API klíč", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-                Text("Klepni a zadej ho v Nastavení › Mapy.com.", color = Palette.Muted, fontSize = 14.sp, textAlign = TextAlign.Center)
+                Text("Podklad ${src.group} potřebuje API klíč", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+                Text("Klepni a zadej ho v Nastavení, nebo ve Vzhledu přepni na OpenStreetMap (bez klíče).", color = Palette.Muted, fontSize = 14.sp, textAlign = TextAlign.Center)
             }
         }
-        // Povinné označení podkladů Mapy.com: logo a autorská práva, obojí s odkazem.
-        MapyLogo.Logo(
-            Modifier.align(Alignment.TopStart).padding(8.dp)
-                .clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.25f))
-                .clickable(enabled = !preview) { Mapy.openWeb(context, "https://mapy.com/") }
-                .padding(horizontal = 4.dp, vertical = 2.dp)
-                .height(30.dp),
-            30
-        )
+        // Povinné označení podkladů: u Mapy.com logo, u všech autorská práva s odkazem.
+        if (src.key == KeyNeed.MAPY) {
+            MapyLogo.Logo(
+                Modifier.align(Alignment.TopStart).padding(8.dp)
+                    .clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.25f))
+                    .clickable(enabled = !preview) { Mapy.openWeb(context, "https://mapy.com/") }
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                    .height(30.dp),
+                30
+            )
+        } else if (src.key == KeyNeed.GOOGLE) {
+            Text(
+                "Google", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.TopStart).padding(8.dp).clip(RoundedCornerShape(6.dp))
+                    .background(Color.Black.copy(alpha = 0.3f)).padding(horizontal = 8.dp, vertical = 2.dp)
+            )
+        }
+        val credit = if (src.key == KeyNeed.GOOGLE) googleCopyright else src.attribution
         Text(
-            if (navigating) "© Seznam.cz a.s. a další · trasa © OpenStreetMap" else "© Seznam.cz a.s. a další",
-            color = Color.White, fontSize = 11.sp,
-            modifier = Modifier.align(Alignment.BottomStart).padding(6.dp).clip(RoundedCornerShape(4.dp))
+            if (navigating) "$credit · trasa © OpenStreetMap" else credit,
+            color = Color.White, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.align(Alignment.BottomStart).padding(end = 160.dp).padding(6.dp).clip(RoundedCornerShape(4.dp))
                 .background(Color.Black.copy(alpha = 0.45f))
-                .clickable(enabled = !preview) { Mapy.openWeb(context, "https://api.mapy.com/copyright") }
+                .clickable(enabled = !preview) { Mapy.openWeb(context, src.link) }
                 .padding(horizontal = 5.dp, vertical = 1.dp)
         )
         if (navigating) {
             NavBanner(nav, Modifier.align(Alignment.TopCenter).padding(start = 8.dp, end = 8.dp, top = 48.dp).fillMaxWidth())
         }
         val err = error
-        if (err != null && key.isNotBlank() && !navigating) {
+        if (err != null && hasKey && !navigating) {
             Text(
                 err, color = Color.White, fontSize = 12.sp,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 46.dp).clip(RoundedCornerShape(6.dp))
