@@ -18,7 +18,7 @@ android {
         minSdk = 29
         targetSdk = 34
         versionCode = ciVersion
-        versionName = "0.2.$ciVersion"
+        versionName = "0.2-beta.$ciVersion"
     }
 
     signingConfigs {
@@ -67,4 +67,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    // Mapa (dlaždice Mapy.com) a vykreslení loga Mapy.com ve formátu SVG.
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
+    implementation("com.caverock:androidsvg-aar:1.4")
 }

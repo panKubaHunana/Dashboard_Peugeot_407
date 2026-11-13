@@ -1,5 +1,6 @@
 package cz.kuba.dash407.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,153 +12,128 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cz.kuba.dash407.data.Appearance
-import cz.kuba.dash407.data.AppearanceStore
+import cz.kuba.dash407.R
+import cz.kuba.dash407.data.Look
 
-/** Pevné barvy pro obrazovky Auto a Tankování; zvýraznění se řídí panelem Vzhled. */
+/** Barevný akcent, který si lze vybrat ve Vzhledu. */
+data class AccentChoice(val nameRes: Int, val color: Color)
+
+val AccentChoices = listOf(
+    AccentChoice(R.string.accent_cyan, Color(0xFF4FC3F7)),
+    AccentChoice(R.string.accent_violet, Color(0xFFA78BFA)),
+    AccentChoice(R.string.accent_green, Color(0xFF34D399)),
+    AccentChoice(R.string.accent_amber, Color(0xFFFFB547)),
+    AccentChoice(R.string.accent_red, Color(0xFFFF5D6C)),
+    AccentChoice(R.string.accent_blue, Color(0xFF5B8CFF)),
+    AccentChoice(R.string.accent_pink, Color(0xFFF472B6)),
+    AccentChoice(R.string.accent_white, Color(0xFFE8EEF6))
+)
+
+/** Pozadí prostředí: dvojice barev pro svislý přechod. */
+data class BackgroundChoice(val nameRes: Int, val top: Color, val bottom: Color)
+
+val BackgroundChoices = listOf(
+    BackgroundChoice(R.string.background_night, Color(0xFF0B1222), Color(0xFF16163A)),
+    BackgroundChoice(R.string.background_black, Color(0xFF000000), Color(0xFF000000)),
+    BackgroundChoice(R.string.background_graphite, Color(0xFF15181D), Color(0xFF232830)),
+    BackgroundChoice(R.string.background_violet, Color(0xFF120E24), Color(0xFF26143F))
+)
+
+val CornerChoices = listOf(12.dp, 22.dp, 32.dp)
+val TextScaleChoices = listOf(0.88f, 1f, 1.15f)
+
+/** Aktuální vzhled; čte se při vykreslení, takže změna se projeví hned. */
+object LookState {
+    var look by mutableStateOf(Look())
+}
+
 object Palette {
-    val accentState = mutableStateOf(Color(0xFF4FC3F7))
-    val Background = Color(0xFF0B0F14)
-    val Tile = Color(0xFF151C26)
-    val TileHigh = Color(0xFF1D2633)
-    val Accent: Color get() = accentState.value
+    private val look: Look get() = LookState.look
+
+    val Accent: Color get() = AccentChoices[look.accent.coerceIn(0, AccentChoices.size - 1)].color
+    val Accent2 = Color(0xFF9C8CFF)
+    val Background: Color get() = BackgroundChoices[look.background.coerceIn(0, BackgroundChoices.size - 1)].top
+    val BackgroundBrush: Brush
+        get() {
+            val b = BackgroundChoices[look.background.coerceIn(0, BackgroundChoices.size - 1)]
+            return Brush.verticalGradient(listOf(b.top, b.bottom))
+        }
+    val Tile: Color get() = Color(0xFF141C2E).copy(alpha = look.tileAlpha)
+    val TileHigh = Color(0xFF222D45)
+    val Border = Color(0xFF2A3754)
     val Amber = Color(0xFFFFB300)
     val Good = Color(0xFF3DDC84)
     val Bad = Color(0xFFFF5252)
-    val Text = Color(0xFFF2F5F9)
-    val Muted = Color(0xFF8A96A8)
-}
-
-/** Vypočtený vzhled, který čtou widgety. */
-data class Look(
-    val accent: Color,
-    val card: Color,
-    val cardHigh: Color,
-    val border: Color?,
-    val text: Color,
-    val muted: Color,
-    val corner: Dp,
-    val gap: Dp,
-    val titles: Boolean,
-    val animations: Boolean,
-    val darkMap: Boolean,
-    val mapStyle: String,
-    val seconds: Boolean,
-    val background: Int
-)
-
-fun lookOf(a: Appearance): Look {
-    val accent = Color(a.accent.toInt())
-    val base = if (a.cardTint) lerp(Color(0xFF141B26), accent, 0.12f) else Color(0xFF141B26)
-    return Look(
-        accent = accent,
-        card = base.copy(alpha = a.cardAlpha),
-        cardHigh = Color(0xFF223042).copy(alpha = (a.cardAlpha + 0.15f).coerceAtMost(1f)),
-        border = if (a.border) Color.White.copy(alpha = 0.08f) else null,
-        text = Palette.Text,
-        muted = Palette.Muted,
-        corner = a.corner.dp,
-        gap = a.gap.dp,
-        titles = a.titles,
-        animations = a.animations,
-        darkMap = a.darkMap,
-        mapStyle = a.mapStyle,
-        seconds = a.seconds,
-        background = a.background
-    )
-}
-
-val LocalLook = compositionLocalOf { lookOf(Appearance()) }
-
-/** Barvy zvýraznění na výběr v panelu Vzhled. */
-val AccentChoices = listOf(
-    0xFF4FC3F7, 0xFF3D8BFF, 0xFF7C4DFF, 0xFFE040FB, 0xFFFF4081, 0xFFFF5252,
-    0xFFFF9100, 0xFFFFD600, 0xFF69F0AE, 0xFF1DE9B6, 0xFF00E5FF, 0xFFECEFF1
-)
-
-/** Pozadí ploch. */
-val BackgroundNames = listOf("Noc", "Polární záře", "Grafit", "Černá", "Půlnoční modrá", "Západ slunce", "Les")
-
-fun backgroundBrush(index: Int, accent: Color): Brush = when (index) {
-    1 -> Brush.linearGradient(
-        listOf(Color(0xFF0B1D3A), Color(0xFF1B0F33), Color(0xFF2A0F1F), Color(0xFF0A0E14)),
-        start = Offset(0f, 0f), end = Offset(900f, 1400f)
-    )
-    2 -> Brush.verticalGradient(listOf(Color(0xFF1C1F24), Color(0xFF0E1013)))
-    3 -> Brush.verticalGradient(listOf(Color.Black, Color.Black))
-    4 -> Brush.verticalGradient(listOf(Color(0xFF0A2540), Color(0xFF050B18)))
-    5 -> Brush.verticalGradient(listOf(Color(0xFF2B1530), Color(0xFF3A1E12), Color(0xFF0B0B10)))
-    6 -> Brush.verticalGradient(listOf(Color(0xFF0E2A22), Color(0xFF06110E)))
-    else -> Brush.verticalGradient(listOf(lerp(Color(0xFF0E1726), accent, 0.06f), Color(0xFF070A10)))
+    val Text = Color(0xFFEEF2F8)
+    val Muted = Color(0xFF8C9AB3)
+    val Radius: Dp get() = CornerChoices[look.corner.coerceIn(0, CornerChoices.size - 1)]
+    val TileBorder: BorderStroke? get() = if (look.tileBorder) BorderStroke(1.dp, Border) else null
 }
 
 @Composable
 fun Dash407Theme(content: @Composable () -> Unit) {
-    val appearance by AppearanceStore.state.collectAsState()
-    val look = remember(appearance) { lookOf(appearance) }
-    SideEffect { Palette.accentState.value = look.accent }
+    val scheme = darkColorScheme(
+        primary = Palette.Accent,
+        onPrimary = Color(0xFF06101C),
+        secondary = Palette.Amber,
+        onSecondary = Color.Black,
+        background = Palette.Background,
+        onBackground = Palette.Text,
+        surface = Palette.Tile,
+        onSurface = Palette.Text,
+        surfaceVariant = Palette.TileHigh,
+        onSurfaceVariant = Palette.Muted,
+        error = Palette.Bad
+    )
     val density = LocalDensity.current
-    val scheme = remember(look.accent) {
-        darkColorScheme(
-            primary = look.accent,
-            onPrimary = Color(0xFF06121C),
-            secondary = Palette.Amber,
-            onSecondary = Color.Black,
-            background = Palette.Background,
-            onBackground = Palette.Text,
-            surface = Palette.Tile,
-            onSurface = Palette.Text,
-            surfaceVariant = Palette.TileHigh,
-            onSurfaceVariant = Palette.Muted,
-            surfaceContainer = Palette.Tile,
-            surfaceContainerHigh = Palette.TileHigh,
-            error = Palette.Bad
-        )
-    }
-    CompositionLocalProvider(
-        LocalLook provides look,
-        LocalDensity provides Density(density.density, density.fontScale * appearance.textScale)
-    ) {
+    val scale = TextScaleChoices[LookState.look.textScale.coerceIn(0, TextScaleChoices.size - 1)]
+    CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale * scale)) {
         MaterialTheme(colorScheme = scheme, content = content)
     }
 }
 
-/** Základní stavební kámen obrazovek Auto a Tankování: zaoblená dlaždice s malým nadpisem. */
+/** Základní stavební kámen: zaoblená dlaždice s malým nadpisem v barvě akcentu. */
 @Composable
 fun Tile(
     title: String,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Surface(modifier = modifier, shape = RoundedCornerShape(24.dp), color = Palette.Tile) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(Palette.Radius),
+        color = Palette.Tile,
+        border = Palette.TileBorder
+    ) {
         Column(Modifier.fillMaxSize().padding(16.dp)) {
-            Text(
-                text = title.uppercase(),
-                color = Palette.Muted,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.2.sp
-            )
+            if (title.isNotEmpty()) TileTitle(title)
             content()
         }
     }
+}
+
+@Composable
+fun TileTitle(title: String, color: Color = Palette.Accent) {
+    Text(
+        text = title.uppercase(),
+        color = color,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.6.sp,
+        maxLines = 1
+    )
 }
 
 /** Dvouřádkový údaj: velká hodnota a pod ní popisek. */
