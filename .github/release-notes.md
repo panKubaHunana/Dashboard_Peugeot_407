@@ -1,4 +1,9 @@
-## Dash 407 – verze 2.2
+## Dash 407 – verze 2.3
+
+### Novinka ve 2.3
+- **Rychlá volba svisle**: když je widget úzký a vysoký (třeba 1 × 7), kontakty jsou pod sebou ve sloupci, kolečka těsně u sebe a jméno hned nad kolečkem. Široký widget zůstává v řadě, čtvercový jako mřížka 3 × 2. Nově přidaný widget má výchozí velikost 1 × 7.
+
+Stáhni `Dash407-2.3.apk` a nainstaluj ho přes starou verzi.
 
 ### Novinky ve 2.2
 - **Plocha Menu** místo spodní lišty: plochy mají o lištu víc místa na widgety. Menu je pod plochou „dole“ (tah prstem nahoru) a obsahuje Aplikace, Rozložení (výběr plochy k úpravě), Vzhled, Nastavení, Tankování, Auto a signály, Servisní knížku, Zvuk/volant/klima, OBD a Plochy. Po přechodu na jinou plochu se na chvíli ukáže kříž s jejím názvem.
@@ -6,8 +11,6 @@
 - **Výstrahy vozu**: u každého kódu je celý rámec z CAN boxu a čas; kód jde pojmenovat podle toho, co ukázal displej auta.
 - **OBD adaptér**: telefony, sluchátka a počítače jsou v seznamu označené („není OBD adaptér“), spojení zkouší tři způsoby (SPP, SPP bez zabezpečení, kanál 1) a chyby jsou česky.
 - **Úvodní obrazovka**: ostřejší obrázek lva PEUGEOT, bez nápisu Dash 407.
-
-Stáhni `Dash407-2.2.apk` a nainstaluj ho v autorádiu přes starou verzi (podpis je stejný, nastavení zůstane).
 
 ### Novinka ve 2.1
 - **Rychlá volba** ve stylu doku (4 × 2): pět vybraných kontaktů a šesté tlačítko otevře seznam kontaktů. Nad tlačítkem jen jméno; klepnutí volá, podržení kontakt upraví.

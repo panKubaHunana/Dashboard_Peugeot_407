@@ -43,7 +43,7 @@ enum class WidgetType(
     CLOCK("Hodiny", "Čas a datum", Category.INFO, 4, 2, 1, 1),
     WEATHER("Počasí", "Aktuální počasí v místě, kde jsi", Category.INFO, 2, 3, 2, 2),
     MEDIA("Právě hraje", "Skladba, obal alba a ovládání přehrávání", Category.MEDIA, 2, 3, 2, 2),
-    PHONE_DIAL("Rychlá volba", "Pět tvých kontaktů a seznam kontaktů jako dok, volání jedním klepnutím", Category.PHONE, 4, 2, 2, 1),
+    PHONE_DIAL("Rychlá volba", "Pět tvých kontaktů a seznam kontaktů ve sloupci, volání jedním klepnutím", Category.PHONE, 1, 7, 1, 1),
     DOCK("Dok aplikací", "Oblíbené aplikace na jedno klepnutí", Category.MEDIA, 4, 2, 1, 1);
 
     companion object {

@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -66,7 +67,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Rychlá volba ve stylu doku: pět vlastních kontaktů a šesté tlačítko otevře seznam kontaktů.
+ * Rychlá volba: pět vlastních kontaktů a šesté tlačítko otevře seznam kontaktů.
+ * Vysoký úzký widget = svislý sloupec (výchozí), široký = řada, jinak mřížka 3 × 2.
  * Klepnutí zavolá, podržení kontakt upraví, prázdné tlačítko kontakt přidá.
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -91,54 +93,71 @@ fun QuickDialWidget(modifier: Modifier, preview: Boolean) {
         }
     }
 
-    WidgetCard(null, modifier, padding = 8.dp) {
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            // Široký widget (4 × 2): šest tlačítek v řadě. Užší: dvě řady po třech.
-            val cols = if (maxWidth > maxHeight * 1.8f) 6 else 3
-            val rows = 6 / cols
-            val label = 18.dp
-            val icon = minOf(maxWidth / cols * 0.78f, (maxHeight / rows - label - 6.dp) * 0.9f, 84.dp)
-            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
-                for (r in 0 until rows) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                        for (col in 0 until cols) {
-                            val i = r * cols + col
-                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                if (i < QuickDial.SLOTS) {
-                                    val c = slots.getOrNull(i)
-                                    Text(
-                                        c?.name?.substringBefore(' ') ?: "Přidat",
-                                        color = if (c != null) Palette.Text else Palette.Muted, fontSize = 13.sp,
-                                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.height(label).padding(horizontal = 2.dp)
-                                    )
-                                    Box(
-                                        Modifier.size(icon).clip(CircleShape)
-                                            .background(if (c != null) Color.White.copy(alpha = 0.92f) else Palette.Text.copy(alpha = 0.08f))
-                                            .combinedClickable(
-                                                enabled = !preview,
-                                                onClick = { if (c != null) dial(c.number) else editing = i },
-                                                onLongClick = { editing = i }
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (c != null) {
-                                            Text(initials(c.name), color = look.accent, fontSize = (icon.value * 0.36f).sp, fontWeight = FontWeight.Bold)
-                                        } else {
-                                            Icon(Icons.Filled.Add, "Přidat kontakt", tint = Palette.Muted, modifier = Modifier.size(icon * 0.45f))
-                                        }
-                                    }
-                                } else {
-                                    Text("Kontakty", color = Palette.Text, fontSize = 13.sp, maxLines = 1, modifier = Modifier.height(label))
-                                    Box(
-                                        Modifier.size(icon).clip(CircleShape).background(Color.White.copy(alpha = 0.92f))
-                                            .clickable(enabled = !preview) { QuickDial.openContacts(context) },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(Icons.Filled.Contacts, "Seznam kontaktů", tint = look.accent, modifier = Modifier.size(icon * 0.5f))
-                                    }
-                                }
+    WidgetCard(null, modifier, padding = 6.dp) {
+        BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            // Tvar widgetu určí rozložení: vysoký a úzký = sloupec, široký a nízký = řada, jinak 3 × 2.
+            val gap = 6.dp
+            val label = 15.dp
+            val vertical = maxHeight > maxWidth * 1.8f
+            val horizontal = !vertical && maxWidth > maxHeight * 1.8f
+            val icon = when {
+                vertical -> minOf(maxWidth * 0.82f, (maxHeight - gap * 5) / 6 - label - 2.dp, 76.dp)
+                horizontal -> minOf((maxWidth - gap * 5) / 6 * 0.9f, maxHeight - label - 2.dp, 76.dp)
+                else -> minOf((maxWidth - gap * 2) / 3 * 0.85f, (maxHeight - gap) / 2 - label - 2.dp, 76.dp)
+            }.coerceAtLeast(24.dp)
+
+            @Composable
+            fun Item(i: Int) {
+                // Jméno těsně nad kolečkem.
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    if (i < QuickDial.SLOTS) {
+                        val c = slots.getOrNull(i)
+                        Text(
+                            c?.name?.substringBefore(' ') ?: "Přidat",
+                            color = if (c != null) Palette.Text else Palette.Muted, fontSize = 12.sp,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.height(label).widthIn(max = icon + 20.dp)
+                        )
+                        Box(
+                            Modifier.size(icon).clip(CircleShape)
+                                .background(if (c != null) Color.White.copy(alpha = 0.92f) else Palette.Text.copy(alpha = 0.08f))
+                                .combinedClickable(
+                                    enabled = !preview,
+                                    onClick = { if (c != null) dial(c.number) else editing = i },
+                                    onLongClick = { editing = i }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (c != null) {
+                                Text(initials(c.name), color = look.accent, fontSize = (icon.value * 0.36f).sp, fontWeight = FontWeight.Bold)
+                            } else {
+                                Icon(Icons.Filled.Add, "Přidat kontakt", tint = Palette.Muted, modifier = Modifier.size(icon * 0.45f))
                             }
+                        }
+                    } else {
+                        Text("Kontakty", color = Palette.Text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.height(label))
+                        Box(
+                            Modifier.size(icon).clip(CircleShape).background(Color.White.copy(alpha = 0.92f))
+                                .clickable(enabled = !preview) { QuickDial.openContacts(context) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.Contacts, "Seznam kontaktů", tint = look.accent, modifier = Modifier.size(icon * 0.5f))
+                        }
+                    }
+                }
+            }
+
+            when {
+                vertical -> Column(verticalArrangement = Arrangement.spacedBy(gap), horizontalAlignment = Alignment.CenterHorizontally) {
+                    for (i in 0..QuickDial.SLOTS) Item(i)
+                }
+                horizontal -> Row(horizontalArrangement = Arrangement.spacedBy(gap), verticalAlignment = Alignment.CenterVertically) {
+                    for (i in 0..QuickDial.SLOTS) Item(i)
+                }
+                else -> Column(verticalArrangement = Arrangement.spacedBy(gap), horizontalAlignment = Alignment.CenterHorizontally) {
+                    for (r in 0 until 2) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                            for (col in 0 until 3) Item(r * 3 + col)
                         }
                     }
                 }
