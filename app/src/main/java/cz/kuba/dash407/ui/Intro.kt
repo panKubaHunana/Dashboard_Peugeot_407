@@ -40,6 +40,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import cz.kuba.dash407.R
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -87,6 +89,7 @@ object IntroLogo {
 }
 
 val IntroStyles = listOf(
+    "photo" to "Peugeot (obrázek)",
     "modern" to "Moderní",
     "retro" to "Retro",
     "custom" to "Vlastní obrázek"
@@ -123,6 +126,7 @@ fun IntroOverlay(onDone: () -> Unit) {
     val custom = remember(style) { if (style == "custom") IntroLogo.load(context)?.asImageBitmap() else null }
     val gold = Color(0xFFD9B35A)
     val bg = when (style) {
+        "photo" -> Brush.verticalGradient(listOf(Color.Black, Color.Black))
         "retro" -> Brush.verticalGradient(listOf(Color(0xFF1A1208), Color(0xFF0A0703)))
         else -> Brush.verticalGradient(listOf(Color(0xFF0E1726), Color(0xFF05070C)))
     }
@@ -135,7 +139,17 @@ fun IntroOverlay(onDone: () -> Unit) {
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onDone() },
         contentAlignment = Alignment.Center
     ) {
-        if (style == "custom" && custom != null) {
+        if (style == "photo") {
+            Image(
+                painterResource(R.drawable.intro_peugeot), null, contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().graphicsLayer {
+                    alpha = seg(0f, 0.3f)
+                    val z = 1f + 0.06f * p.value
+                    scaleX = z
+                    scaleY = z
+                }
+            )
+        } else if (style == "custom" && custom != null) {
             Image(
                 custom, null, contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxWidth(0.7f).padding(24.dp)

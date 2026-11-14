@@ -23,8 +23,8 @@ data class Appearance(
     val theme: String = "dark",
     val font: String = "default",
     val intro: Boolean = true,
-    /** modern, retro, custom */
-    val introStyle: String = "modern",
+    /** photo, modern, retro, custom */
+    val introStyle: String = "photo",
     val introSeconds: Float = 4f
 )
 
