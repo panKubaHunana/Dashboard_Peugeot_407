@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.ContactsContract
+import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.widget.Toast
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -78,12 +79,11 @@ object QuickDial {
         if (!canRead(context)) return emptyList()
         val byContact = LinkedHashMap<Long, Pair<DialContact, Boolean>>()
         try {
-            val p = ContactsContract.CommonDataKinds.Phone
             context.contentResolver.query(
-                p.CONTENT_URI,
-                arrayOf(p.CONTACT_ID, p.DISPLAY_NAME, p.NUMBER, p.IS_PRIMARY),
+                Phone.CONTENT_URI,
+                arrayOf(Phone.CONTACT_ID, Phone.DISPLAY_NAME, Phone.NUMBER, Phone.IS_PRIMARY),
                 ContactsContract.Contacts.STARRED + "=1", null,
-                p.DISPLAY_NAME + " COLLATE LOCALIZED ASC"
+                Phone.DISPLAY_NAME + " COLLATE LOCALIZED ASC"
             )?.use { c ->
                 while (c.moveToNext()) {
                     val id = c.getLong(0)
@@ -103,8 +103,7 @@ object QuickDial {
 
     /** Přečte jméno a číslo z výsledku výběru kontaktu (bez nutnosti oprávnění číst všechny kontakty). */
     fun fromPick(context: Context, uri: Uri): DialContact? = try {
-        val p = ContactsContract.CommonDataKinds.Phone
-        context.contentResolver.query(uri, arrayOf(p.DISPLAY_NAME, p.NUMBER), null, null, null)?.use { c ->
+        context.contentResolver.query(uri, arrayOf(Phone.DISPLAY_NAME, Phone.NUMBER), null, null, null)?.use { c ->
             if (c.moveToFirst()) {
                 val number = c.getString(1)
                 if (number.isNullOrBlank()) null else DialContact(c.getString(0) ?: number, number)
