@@ -196,6 +196,15 @@ fun SettingsScreen() {
             }, shape = RoundedCornerShape(16.dp)) { Text("Uložit cíle", fontSize = 16.sp) }
         }
 
+        Card("Hudba", "Widget Právě hraje má přednost u zvolené aplikace. Když nic nehraje, klepnutí otevře její aplikaci. Výchozí je YouTube Music.") {
+            val musicApp by Prefs.musicApp.collectAsState()
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Pill("YouTube Music", musicApp == Prefs.YT_MUSIC) { Prefs.setMusicApp(Prefs.YT_MUSIC); NowPlaying.refresh(context) }
+                Pill("Spotify", musicApp == Prefs.SPOTIFY) { Prefs.setMusicApp(Prefs.SPOTIFY); NowPlaying.refresh(context) }
+                Pill("Jakákoli", musicApp.isEmpty()) { Prefs.setMusicApp(""); NowPlaying.refresh(context) }
+            }
+        }
+
         Card("Plochy", "Plochy tvoří kříž kolem střední plochy. Přecházíš mezi nimi tahem prstu, aktuální ukazuje kříž ve spodní liště.") {
             for (slot in listOf(Slot.UP, Slot.LEFT, Slot.RIGHT, Slot.DOWN)) {
                 val page = pages.firstOrNull { it.slot == slot } ?: continue

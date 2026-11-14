@@ -9,7 +9,8 @@ enum class Category(val label: String) {
     NAVIGATION("Navigace"),
     VEHICLE("Vozidlo"),
     INFO("Info"),
-    MEDIA("Média")
+    MEDIA("Média"),
+    PHONE("Telefon")
 }
 
 /** Všechny widgety, které jdou dát na plochu, s výchozí a nejmenší velikostí v mřížce 4 × 12. */
@@ -41,6 +42,7 @@ enum class WidgetType(
     CLOCK("Hodiny", "Čas a datum", Category.INFO, 4, 2, 1, 1),
     WEATHER("Počasí", "Aktuální počasí v místě, kde jsi", Category.INFO, 2, 3, 2, 2),
     MEDIA("Právě hraje", "Skladba, obal alba a ovládání přehrávání", Category.MEDIA, 2, 3, 2, 2),
+    PHONE_DIAL("Rychlá volba", "Pět tvých kontaktů nebo oblíbené kontakty z rádia, volání jedním klepnutím", Category.PHONE, 2, 4, 2, 3),
     DOCK("Dok aplikací", "Oblíbené aplikace na jedno klepnutí", Category.MEDIA, 4, 2, 1, 1);
 
     companion object {
@@ -75,5 +77,6 @@ fun WidgetContent(type: WidgetType, cell: Cell?, modifier: Modifier = Modifier, 
         WidgetType.WEATHER -> WeatherWidget(modifier, preview)
         WidgetType.MEDIA -> MediaWidget(modifier, preview)
         WidgetType.DOCK -> DockWidget(modifier, preview)
+        WidgetType.PHONE_DIAL -> QuickDialWidget(modifier, preview)
     }
 }

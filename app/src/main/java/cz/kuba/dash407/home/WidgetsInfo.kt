@@ -199,6 +199,10 @@ fun MediaWidget(modifier: Modifier, preview: Boolean) {
     val context = LocalContext.current
     val look = LocalLook.current
     val m by NowPlaying.state.collectAsState()
+    val musicPkg by Prefs.musicApp.collectAsState()
+    val apps by AppsRepo.apps.collectAsState()
+    val musicLabel = apps.firstOrNull { it.packageName == musicPkg }?.label
+        ?: if (musicPkg == Prefs.YT_MUSIC) "YouTube Music" else null
     val shape = RoundedCornerShape(look.corner)
     Box(modifier.fillMaxSize().clip(shape)) {
         val art = m.art
@@ -218,6 +222,7 @@ fun MediaWidget(modifier: Modifier, preview: Boolean) {
                     val pkg = m.packageName
                     if (!m.allowed) UiBus.open(Panel.SETTINGS)
                     else if (pkg != null) AppsRepo.launch(context, pkg)
+                    else if (musicPkg.isNotBlank()) AppsRepo.launch(context, musicPkg)
                 }
                 .padding(14.dp)
         ) {
@@ -236,6 +241,9 @@ fun MediaWidget(modifier: Modifier, preview: Boolean) {
             }
             Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             val artist = m.artist
+            if (!m.hasSession && m.allowed && musicLabel != null) {
+                Text("Klepni a otevři $musicLabel", color = Color.White.copy(alpha = 0.8f), fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
             if (m.hasSession && !artist.isNullOrBlank()) {
                 Text(artist, color = Color.White.copy(alpha = 0.8f), fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
@@ -245,7 +253,11 @@ fun MediaWidget(modifier: Modifier, preview: Boolean) {
                 RoundButton(
                     if (m.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     if (m.playing) "Pozastavit" else "Přehrát", size = 50.dp, filled = true
-                ) { if (!preview) NowPlaying.playPause() }
+                ) {
+                    if (!preview) {
+                        if (!m.hasSession && musicPkg.isNotBlank()) AppsRepo.launch(context, musicPkg) else NowPlaying.playPause()
+                    }
+                }
                 RoundButton(Icons.Filled.SkipNext, "Další", size = 42.dp) { if (!preview) NowPlaying.next() }
             }
         }

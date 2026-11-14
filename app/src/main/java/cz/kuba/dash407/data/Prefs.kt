@@ -19,6 +19,9 @@ object Prefs {
     private const val KEY_NAV_HEADING = "nav_heading_up"
     private const val KEY_NAV_TARGET = "nav_target"
     private const val KEY_GOOGLE = "google_key"
+    private const val KEY_MUSIC = "music_app"
+    const val YT_MUSIC = "com.google.android.apps.youtube.music"
+    const val SPOTIFY = "com.spotify.music"
     const val MAX_FAVORITES = 8
 
     private lateinit var store: SharedPreferences
@@ -67,6 +70,15 @@ object Prefs {
         store.edit().putString(KEY_NAV_TARGET, v).putBoolean(KEY_NAV_IN_APP, v == "dash").apply()
     }
 
+    private val _musicApp = MutableStateFlow(YT_MUSIC)
+    /** Hudební aplikace pro widget Právě hraje; prázdné = jakákoli. Výchozí je YouTube Music. */
+    val musicApp: StateFlow<String> = _musicApp
+
+    fun setMusicApp(v: String) {
+        _musicApp.value = v
+        store.edit().putString(KEY_MUSIC, v).apply()
+    }
+
     private val _googleKey = MutableStateFlow("")
     /** API klíč Google Maps Platform (Map Tiles API) pro Google podklady. */
     val googleKey: StateFlow<String> = _googleKey
@@ -92,6 +104,7 @@ object Prefs {
         _navTarget.value = store.getString(KEY_NAV_TARGET, null) ?: if (_navInApp.value) "dash" else "mapy"
         _navInApp.value = _navTarget.value == "dash"
         _googleKey.value = store.getString(KEY_GOOGLE, "") ?: ""
+        _musicApp.value = store.getString(KEY_MUSIC, YT_MUSIC) ?: YT_MUSIC
         _navVoice.value = store.getBoolean(KEY_NAV_VOICE, true)
         _navHeadingUp.value = store.getBoolean(KEY_NAV_HEADING, true)
     }

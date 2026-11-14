@@ -105,7 +105,12 @@ object NowPlaying {
     }
 
     private fun pick(list: List<MediaController>?) {
-        val best = list?.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING } ?: list?.firstOrNull()
+        // Přednost má zvolená aplikace (výchozí YouTube Music); když hraje jiná a ta zvolená ne, ukáže se ta, co hraje.
+        val preferred = Prefs.musicApp.value.takeIf { it.isNotBlank() }?.let { pkg -> list?.firstOrNull { it.packageName == pkg } }
+        val best = when {
+            preferred?.playbackState?.state == PlaybackState.STATE_PLAYING -> preferred
+            else -> list?.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING } ?: preferred ?: list?.firstOrNull()
+        }
         if (best?.sessionToken != controller?.sessionToken) {
             controller?.unregisterCallback(controllerCallback)
             controller = best
