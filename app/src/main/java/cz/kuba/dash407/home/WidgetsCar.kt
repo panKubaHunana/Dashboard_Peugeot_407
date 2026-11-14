@@ -15,6 +15,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -138,6 +145,42 @@ fun ServiceWidget(modifier: Modifier, preview: Boolean = false) {
                     due.remainingDays?.let { if (it >= 0) "za $it dní" else "o ${-it} dní přes" }
                 ).joinToString("\n")
                 if (line.isNotEmpty()) Text(line, color = Palette.Muted, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+/** Čtyři zkratky na původní aplikace rádia. Nenalezená aplikace otevře výběr. */
+@Composable
+fun CarAppsWidget(modifier: Modifier, preview: Boolean) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val look = cz.kuba.dash407.ui.LocalLook.current
+    val apps by cz.kuba.dash407.data.AppsRepo.apps.collectAsState()
+    // chosen jen spouští překreslení po ručním výběru aplikace.
+    val chosen by cz.kuba.dash407.data.CarApps.chosen.collectAsState()
+    val items = listOf(
+        Triple("dsp", "DSP", androidx.compose.material.icons.Icons.Filled.GraphicEq),
+        Triple("keys", "Volant", androidx.compose.material.icons.Icons.Filled.TouchApp),
+        Triple("climate", "Klima", androidx.compose.material.icons.Icons.Filled.AcUnit),
+        Triple("car", "Vůz", androidx.compose.material.icons.Icons.Filled.DirectionsCar)
+    )
+    WidgetCard(null, modifier, padding = 8.dp) {
+        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            for ((id, label, icon) in items) {
+                val slot = cz.kuba.dash407.data.CarApps.slots.first { it.id == id }
+                val app = remember(apps, chosen) { cz.kuba.dash407.data.CarApps.resolve(slot, apps, context.packageName) }
+                Column(
+                    Modifier.weight(1f).clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                        .clickable(enabled = !preview) {
+                            if (app != null) cz.kuba.dash407.data.AppsRepo.launch(context, app.packageName) else UiBus.open(Panel.CARAPPS)
+                        }
+                        .padding(vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    androidx.compose.material3.Icon(icon, label, tint = if (app != null) look.accent else Palette.Muted, modifier = Modifier.size(34.dp))
+                    Text(label, color = Palette.Text, fontSize = 14.sp, maxLines = 1)
+                }
             }
         }
     }

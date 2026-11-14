@@ -94,6 +94,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import cz.kuba.dash407.ui.SettingsScreen
 import cz.kuba.dash407.ui.ObdScreen
 import cz.kuba.dash407.ui.ServiceScreen
+import cz.kuba.dash407.ui.CarAppsScreen
 import cz.kuba.dash407.ui.backgroundBrush
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -120,6 +121,7 @@ fun PanelHost() {
             Panel.PICKER -> "Přidat na plochu"
             Panel.OBD -> "OBD adaptér"
             Panel.SERVICE -> "Servisní knížka"
+            Panel.CARAPPS -> "Zvuk, volant a klimatizace"
             else -> ""
         }
         PanelHeader(title, onBack = { UiBus.close() })
@@ -133,6 +135,7 @@ fun PanelHost() {
                 Panel.PICKER -> PickerPanel()
                 Panel.OBD -> ObdScreen()
                 Panel.SERVICE -> ServiceScreen()
+                Panel.CARAPPS -> CarAppsScreen()
                 else -> Unit
             }
         }

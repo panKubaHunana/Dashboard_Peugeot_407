@@ -68,12 +68,40 @@ object LayoutStore {
             // Chybějící plochy doplníme z výchozího rozložení.
             val merged = defaults().map { d -> list.firstOrNull { it.slot == d.slot } ?: d }
             _pages.value = merged.map { if (it.slot == Slot.CENTER) it.copy(enabled = true) else it }
+            migrateV2()
         } catch (e: Exception) {
             _pages.value = defaults()
         }
     }
 
     fun page(slot: Slot): Page = _pages.value.first { it.slot == slot }
+
+    /**
+     * Jednorázový převod na verzi 2.0: widgety Palubní počítač a Jízda se sloučily do jednoho.
+     * Na místě Palubního počítače bude sloučený widget, na místě Jízdy Rychlá volba
+     * (když se tam nevejde, Servis). Když je na ploše jen jeden z nich, nahradí se sloučeným.
+     */
+    private fun migrateV2() {
+        val flag = "layout_migrated_v2"
+        if (Prefs.shared().getBoolean(flag, false)) return
+        val comp = WidgetType.CAR_COMPUTER.name
+        val trip = WidgetType.TRIP.name
+        _pages.value = _pages.value.map { p ->
+            val hasComp = p.cells.any { it.type == comp }
+            val hasTrip = p.cells.any { it.type == trip }
+            if (!hasComp && !hasTrip) return@map p
+            val mergedId = (p.cells.firstOrNull { it.type == comp } ?: p.cells.first { it.type == trip }).id
+            p.copy(cells = p.cells.map { c ->
+                when {
+                    c.id == mergedId -> c.copy(type = WidgetType.TRIP_COMPUTER.name)
+                    c.type == trip -> c.copy(type = if (c.w >= 2 && c.h >= 3) WidgetType.PHONE_DIAL.name else WidgetType.SERVICE.name)
+                    else -> c
+                }
+            })
+        }
+        save()
+        Prefs.shared().edit().putBoolean(flag, true).apply()
+    }
 
     private fun save() {
         val a = JSONArray()
@@ -134,7 +162,7 @@ object LayoutStore {
                 c(WidgetType.DIRECTIONS, 0, 4, 2, 3),
                 c(WidgetType.WEATHER, 2, 4, 2, 3),
                 c(WidgetType.MEDIA, 0, 7, 2, 3),
-                c(WidgetType.TRIP, 2, 7, 2, 3),
+                c(WidgetType.TRIP_COMPUTER, 2, 7, 2, 3),
                 c(WidgetType.DOCK, 0, 10, 4, 2)
             )
         ),
@@ -148,7 +176,7 @@ object LayoutStore {
         ),
         Page(
             Slot.LEFT, "Auto", true, listOf(
-                c(WidgetType.CAR_COMPUTER, 0, 0, 2, 4),
+                c(WidgetType.TRIP_COMPUTER, 0, 0, 2, 4),
                 c(WidgetType.SPEED_GAUGE, 2, 0, 2, 4),
                 c(WidgetType.DOORS, 0, 4, 2, 4),
                 c(WidgetType.VOLTAGE, 2, 4, 2, 2),
@@ -173,7 +201,7 @@ object LayoutStore {
                 c(WidgetType.GFORCE, 2, 3, 2, 3),
                 c(WidgetType.PERF, 0, 6, 4, 3),
                 c(WidgetType.SPEED_LIMIT, 0, 9, 2, 3),
-                c(WidgetType.TRIP, 2, 9, 2, 3)
+                c(WidgetType.PHONE_DIAL, 2, 9, 2, 3)
             )
         )
     )

@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
         cz.kuba.dash407.data.ServiceBook.init(this)
         cz.kuba.dash407.car.Obd.init()
         cz.kuba.dash407.data.QuickDial.init()
+        cz.kuba.dash407.data.CarApps.init()
         McuLink.start(packageName)
         AppsRepo.reload(this)
         if (Prefs.demo.value) Demo.start()

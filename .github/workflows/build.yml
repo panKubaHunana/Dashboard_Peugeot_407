@@ -67,8 +67,20 @@ jobs:
           VERSION_CODE: ${{ github.run_number }}
         run: gradle :app:assembleDebug --stacktrace
 
+      # Verze se bere z versionName v app/build.gradle.kts (např. 2.0).
+      # Když vydání s touto verzí už existuje, přidá se číslo sestavení (2.0.57).
+      - name: Verze
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(grep -oP 'versionName = "\K[0-9.]+' app/build.gradle.kts | head -1)
+          [ -z "$VERSION" ] && VERSION="0.1.${{ github.run_number }}"
+          if gh release view "v$VERSION" >/dev/null 2>&1; then VERSION="$VERSION.${{ github.run_number }}"; fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Verze: $VERSION"
+
       - name: Přejmenování APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Dash407-0.1.${{ github.run_number }}.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk "Dash407-$VERSION.apk"
 
       - name: Artefakt
         uses: actions/upload-artifact@v4
@@ -80,7 +92,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v0.1.${{ github.run_number }}" Dash407-*.apk \
-            --title "Dash 407 – verze 0.1.${{ github.run_number }}" \
-            --notes "Automatické sestavení z větve main. Stáhni soubor APK a nainstaluj ho v autorádiu." \
-            --latest
+          NOTES="Automatické sestavení z větve main. Stáhni soubor APK a nainstaluj ho v autorádiu."
+          if [ -f .github/release-notes.md ]; then
+            gh release create "v$VERSION" "Dash407-$VERSION.apk" --title "Dash 407 – verze $VERSION" --notes-file .github/release-notes.md --latest
+          else
+            gh release create "v$VERSION" "Dash407-$VERSION.apk" --title "Dash 407 – verze $VERSION" --notes "$NOTES" --latest
+          fi

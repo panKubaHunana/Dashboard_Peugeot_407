@@ -37,6 +37,7 @@ enum class WidgetType(
     CAR_COMPUTER("Palubní počítač", "Okamžitá spotřeba, dojezd a průměr z auta", Category.VEHICLE, 2, 4, 2, 2),
     DOORS("Dveře", "Otevřené dveře, kapota a páté dveře", Category.VEHICLE, 2, 4, 2, 2),
     VOLTAGE("Napětí", "Napětí palubní sítě a spojení s autem", Category.VEHICLE, 2, 2, 1, 2),
+    CAR_APPS("Zvuk, volant, klima", "Rychlé zkratky: DSP a ekvalizér, učení tlačítek na volantu, klimatizace, nastavení vozu", Category.VEHICLE, 4, 2, 2, 1),
     SERVICE("Servis", "Nejbližší termín z servisní knížky: olej, filtry, brzdy", Category.VEHICLE, 2, 2, 2, 2),
     FUEL("Spotřeba z tankování", "Dlouhodobý průměr a poslední nádrž", Category.VEHICLE, 2, 2, 2, 2),
     CLOCK("Hodiny", "Čas a datum", Category.INFO, 4, 2, 1, 1),
@@ -73,6 +74,7 @@ fun WidgetContent(type: WidgetType, cell: Cell?, modifier: Modifier = Modifier, 
         WidgetType.VOLTAGE -> VoltageWidget(modifier)
         WidgetType.FUEL -> FuelWidget(modifier, preview)
         WidgetType.SERVICE -> ServiceWidget(modifier, preview)
+        WidgetType.CAR_APPS -> CarAppsWidget(modifier, preview)
         WidgetType.CLOCK -> ClockWidget(modifier)
         WidgetType.WEATHER -> WeatherWidget(modifier, preview)
         WidgetType.MEDIA -> MediaWidget(modifier, preview)

@@ -24,6 +24,13 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -79,6 +86,8 @@ fun SettingsScreen() {
     val navHeading by Prefs.navHeadingUp.collectAsState()
     val pages by LayoutStore.pages.collectAsState()
     var keyText by remember { mutableStateOf(mapyKey) }
+    var showMapy by remember { mutableStateOf(false) }
+    var showGoogle by remember { mutableStateOf(false) }
     var keyResult by remember { mutableStateOf<String?>(null) }
     var homeText by remember { mutableStateOf(home) }
     var workText by remember { mutableStateOf(work) }
@@ -99,6 +108,11 @@ fun SettingsScreen() {
         ) { open(context, Settings.ACTION_HOME_SETTINGS) }
 
         SettingCard(
+            "Zvuk, volant a klimatizace", "Zkratky na původní aplikace rádia: DSP a ekvalizér, učení tlačítek na volantu, klimatizace a nastavení vozu.",
+            "Otevřít zkratky"
+        ) { UiBus.open(Panel.CARAPPS) }
+
+        SettingCard(
             "OBD adaptér", "Bluetooth nebo Wi-Fi adaptér ELM327: otáčky, teplota motoru, tlak v sání a další data z řídicí jednotky.",
             "Otevřít nastavení OBD"
         ) { UiBus.open(Panel.OBD) }
@@ -113,7 +127,14 @@ fun SettingsScreen() {
             "Hlasová navigace běží v aplikaci Mapy.com a klíč nepotřebuje.") {
             OutlinedTextField(
                 value = keyText, onValueChange = { keyText = it.trim() }, singleLine = true,
-                label = { Text("API klíč") }, modifier = Modifier.fillMaxWidth()
+                label = { Text("API klíč") }, modifier = Modifier.fillMaxWidth(),
+                // Klíč je skrytý tečkami; okem se dá dočasně zobrazit.
+                visualTransformation = if (showMapy) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { showMapy = !showMapy }) {
+                        Icon(if (showMapy) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, if (showMapy) "Skrýt klíč" else "Zobrazit klíč")
+                    }
+                }
             )
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -162,7 +183,14 @@ fun SettingsScreen() {
             "pak Google účtuje (cca 0,60 USD za 1 000). Podklad pak vybereš ve Vzhledu › Mapa.") {
             OutlinedTextField(
                 value = googleText, onValueChange = { googleText = it.trim() }, singleLine = true,
-                label = { Text("Google API klíč") }, modifier = Modifier.fillMaxWidth()
+                label = { Text("Google API klíč") }, modifier = Modifier.fillMaxWidth(),
+                // Klíč je skrytý tečkami; okem se dá dočasně zobrazit.
+                visualTransformation = if (showGoogle) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { showGoogle = !showGoogle }) {
+                        Icon(if (showGoogle) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, if (showGoogle) "Skrýt klíč" else "Zobrazit klíč")
+                    }
+                }
             )
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

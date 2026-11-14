@@ -205,31 +205,56 @@ fun TripComputerWidget(modifier: Modifier, preview: Boolean) {
                     if (!car.linked) Text("Bez dat z auta", color = Palette.Muted, fontSize = 13.sp)
                 }
             }
-            val tripBlock: @Composable (Modifier) -> Unit = { m ->
+            val tripRows = listOf(
+                "Ujeto" to formatKm(t.distanceM) + " km",
+                "Čas" to formatDuration(elapsed),
+                "V pohybu" to formatDuration(t.movingMs),
+                "Průměr" to "${t.averageKmh.roundToInt()} km/h",
+                "Maximum" to "${t.topKmh.roundToInt()} km/h",
+                "Od" to since,
+                "Odhad" to (litres?.let { decimal(it) + " l" } ?: "– l") + ", " + (cost?.let { decimal(it, 0) + " Kč" } ?: "– Kč")
+            )
+            val tripBlock: @Composable (Modifier, Int) -> Unit = { m, count ->
                 Column(m, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    StatRow("Ujeto", formatKm(t.distanceM) + " km")
-                    StatRow("Čas", formatDuration(elapsed))
-                    StatRow("V pohybu", formatDuration(t.movingMs))
-                    StatRow("Průměr", "${t.averageKmh.roundToInt()} km/h")
-                    StatRow("Maximum", "${t.topKmh.roundToInt()} km/h")
-                    StatRow("Od", since)
-                    StatRow("Odhad", (litres?.let { decimal(it) + " l" } ?: "– l") + ", " + (cost?.let { decimal(it, 0) + " Kč" } ?: "– Kč"))
+                    for ((label, value) in tripRows.take(count)) StatRow(label, value)
                 }
             }
-            if (wide) {
+            // Nízký a úzký widget (třeba 2 × 3): údaje z auta v jednom řádku, pod nimi tolik řádků jízdy, kolik se vejde.
+            val compact = !wide && maxHeight < 360.dp
+            if (compact) {
+                val rowsFit = ((maxHeight - 64.dp) / 24.dp).toInt().coerceIn(3, tripRows.size)
+                Column(Modifier.fillMaxSize()) {
+                    Row(Modifier.fillMaxWidth()) {
+                        SmallReading(car.instantL100?.let { decimal(it) } ?: DASH, "l/100 nyní", Modifier.weight(1f))
+                        SmallReading(car.rangeKm?.toString() ?: DASH, "dojezd km", Modifier.weight(1f),
+                            if ((car.rangeKm ?: 999) < 80) Palette.Amber else Palette.Text)
+                        SmallReading(car.trip1?.avgL100?.let { decimal(it) } ?: DASH, "průměr T1", Modifier.weight(1f))
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    tripBlock(Modifier.fillMaxWidth(), rowsFit)
+                }
+            } else if (wide) {
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                     carBlock(Modifier.weight(1f).fillMaxHeight())
                     Spacer(Modifier.width(14.dp))
-                    tripBlock(Modifier.weight(1.1f))
+                    tripBlock(Modifier.weight(1.1f), tripRows.size)
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
                     carBlock(Modifier.fillMaxWidth().weight(1f))
                     Spacer(Modifier.height(8.dp))
-                    tripBlock(Modifier.fillMaxWidth())
+                    tripBlock(Modifier.fillMaxWidth(), tripRows.size)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SmallReading(value: String, label: String, modifier: Modifier, color: androidx.compose.ui.graphics.Color = Palette.Text) {
+    Column(modifier) {
+        Text(value, color = color, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(label, color = Palette.Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

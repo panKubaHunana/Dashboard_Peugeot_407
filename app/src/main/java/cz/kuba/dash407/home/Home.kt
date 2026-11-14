@@ -38,6 +38,7 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
@@ -396,6 +397,7 @@ fun BottomBar(pages: List<Page>) {
                 DropdownMenuItem(text = { Text("Tankování") }, leadingIcon = { Icon(Icons.Filled.LocalGasStation, null) }, onClick = { menu = false; UiBus.open(Panel.FUEL) })
                 DropdownMenuItem(text = { Text("Auto a signály") }, leadingIcon = { Icon(Icons.Filled.DirectionsCar, null) }, onClick = { menu = false; UiBus.open(Panel.CAR) })
                 DropdownMenuItem(text = { Text("Servisní knížka") }, leadingIcon = { Icon(Icons.Filled.Build, null) }, onClick = { menu = false; UiBus.open(Panel.SERVICE) })
+                DropdownMenuItem(text = { Text("Zvuk, volant a klimatizace") }, leadingIcon = { Icon(Icons.Filled.Tune, null) }, onClick = { menu = false; UiBus.open(Panel.CARAPPS) })
                 DropdownMenuItem(text = { Text("OBD adaptér") }, leadingIcon = { Icon(Icons.Filled.Bluetooth, null) }, onClick = { menu = false; UiBus.open(Panel.OBD) })
                 DropdownMenuItem(text = { Text("Nastavení") }, leadingIcon = { Icon(Icons.Filled.Settings, null) }, onClick = { menu = false; UiBus.open(Panel.SETTINGS) })
             }
