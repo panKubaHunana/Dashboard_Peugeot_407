@@ -128,11 +128,11 @@ fun RoundButton(
         modifier
             .size(size)
             .clip(CircleShape)
-            .background(if (filled) look.accent else Color.White.copy(alpha = 0.12f))
+            .background(if (filled) look.accent else Palette.Text.copy(alpha = 0.12f))
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Icon(icon, description, Modifier.size(size * 0.55f), tint = if (filled) Color(0xFF06121C) else Color.White)
+        Icon(icon, description, Modifier.size(size * 0.55f), tint = if (filled) Color(0xFF06121C) else Palette.Text)
     }
 }
 
@@ -152,13 +152,13 @@ fun Pill(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick
     Box(
         modifier
             .clip(RoundedCornerShape(50))
-            .background(if (selected) look.accent.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.07f))
-            .border(1.dp, if (selected) look.accent else Color.White.copy(alpha = 0.12f), RoundedCornerShape(50))
+            .background(if (selected) look.accent.copy(alpha = 0.28f) else Palette.Text.copy(alpha = 0.07f))
+            .border(1.dp, if (selected) look.accent else Palette.Text.copy(alpha = 0.12f), RoundedCornerShape(50))
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 9.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(text, color = if (selected) Color.White else Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        Text(text, color = if (selected) Palette.Text else Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1)
     }
 }
 

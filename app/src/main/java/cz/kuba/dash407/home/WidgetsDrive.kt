@@ -88,7 +88,7 @@ fun SpeedGaugeWidget(modifier: Modifier) {
                 val side = minOf(size.width, size.height) - stroke
                 val topLeft = Offset((size.width - side) / 2f, (size.height - side) / 2f)
                 val arc = Size(side, side)
-                drawArc(Color.White.copy(alpha = 0.1f), 135f, 270f, false, topLeft, arc, style = Stroke(stroke, cap = StrokeCap.Round))
+                drawArc(Palette.Text.copy(alpha = 0.1f), 135f, 270f, false, topLeft, arc, style = Stroke(stroke, cap = StrokeCap.Round))
                 val part = ((speed ?: 0).coerceIn(0, 200)) / 200f
                 if (part > 0f) {
                     drawArc(
@@ -190,10 +190,10 @@ fun GForceWidget(modifier: Modifier, preview: Boolean) {
             Canvas(Modifier.fillMaxHeight().aspectRatio(1f)) {
                 val r = minOf(size.width, size.height) / 2f
                 val c = Offset(size.width / 2f, size.height / 2f)
-                drawCircle(Color.White.copy(alpha = 0.1f), r, c, style = Stroke(2f))
-                drawCircle(Color.White.copy(alpha = 0.08f), r * 0.5f, c, style = Stroke(2f))
-                drawLine(Color.White.copy(alpha = 0.08f), Offset(c.x - r, c.y), Offset(c.x + r, c.y), 2f)
-                drawLine(Color.White.copy(alpha = 0.08f), Offset(c.x, c.y - r), Offset(c.x, c.y + r), 2f)
+                drawCircle(Palette.Text.copy(alpha = 0.1f), r, c, style = Stroke(2f))
+                drawCircle(Palette.Text.copy(alpha = 0.08f), r * 0.5f, c, style = Stroke(2f))
+                drawLine(Palette.Text.copy(alpha = 0.08f), Offset(c.x - r, c.y), Offset(c.x + r, c.y), 2f)
+                drawLine(Palette.Text.copy(alpha = 0.08f), Offset(c.x, c.y - r), Offset(c.x, c.y + r), 2f)
                 // Celý poloměr = 1 g.
                 val p = Offset(c.x + g.lateral.coerceIn(-1f, 1f) * r, c.y - g.longitudinal.coerceIn(-1f, 1f) * r)
                 drawCircle(look.accent.copy(alpha = 0.3f), r * 0.16f, p)
@@ -263,12 +263,12 @@ fun CompassWidget(modifier: Modifier) {
                 Canvas(Modifier.fillMaxSize().rotate(-bearing)) {
                     val r = minOf(size.width, size.height) / 2f - 2f
                     val c = Offset(size.width / 2f, size.height / 2f)
-                    drawCircle(Color.White.copy(alpha = 0.12f), r, c, style = Stroke(3f))
+                    drawCircle(Palette.Text.copy(alpha = 0.12f), r, c, style = Stroke(3f))
                     for (i in 0 until 12) {
                         val a = Math.toRadians(i * 30.0)
                         val inner = if (i % 3 == 0) 0.78f else 0.88f
                         drawLine(
-                            Color.White.copy(alpha = if (i % 3 == 0) 0.6f else 0.25f),
+                            Palette.Text.copy(alpha = if (i % 3 == 0) 0.6f else 0.25f),
                             Offset(c.x + (r * inner * Math.sin(a)).toFloat(), c.y - (r * inner * Math.cos(a)).toFloat()),
                             Offset(c.x + (r * Math.sin(a)).toFloat(), c.y - (r * Math.cos(a)).toFloat()),
                             3f
@@ -287,7 +287,7 @@ fun CompassWidget(modifier: Modifier) {
                         lineTo(c.x + r * 0.14f, c.y)
                         close()
                     }
-                    drawPath(south, Color.White.copy(alpha = 0.7f))
+                    drawPath(south, Palette.Text.copy(alpha = 0.7f))
                 }
             }
             Spacer(Modifier.width(8.dp))

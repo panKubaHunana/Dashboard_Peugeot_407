@@ -49,6 +49,7 @@ import cz.kuba.dash407.data.Gps
 import cz.kuba.dash407.data.NowPlaying
 import cz.kuba.dash407.data.Prefs
 import cz.kuba.dash407.home.LayoutStore
+import cz.kuba.dash407.home.Panel
 import cz.kuba.dash407.home.Slot
 import cz.kuba.dash407.home.UiBus
 import cz.kuba.dash407.nav.Mapy
@@ -96,6 +97,16 @@ fun SettingsScreen() {
             stringResource(R.string.settings_home_text),
             stringResource(R.string.settings_home_button)
         ) { open(context, Settings.ACTION_HOME_SETTINGS) }
+
+        SettingCard(
+            "OBD adaptér", "Bluetooth nebo Wi-Fi adaptér ELM327: otáčky, teplota motoru, tlak v sání a další data z řídicí jednotky.",
+            "Otevřít nastavení OBD"
+        ) { UiBus.open(Panel.OBD) }
+
+        SettingCard(
+            "Servisní knížka", "SPZ, VIN, motorizace, olej, filtry a brzdy s upozorněním na termín.",
+            "Otevřít servisní knížku"
+        ) { UiBus.open(Panel.SERVICE) }
 
         Card("Mapy.com", "Mapa v rádiu, hledání míst a plánování trasy používají REST API Mapy.com. " +
             "Bezplatný API klíč získáš na developer.mapy.com (Můj účet › API klíče). Klíč zůstává jen v rádiu. " +
