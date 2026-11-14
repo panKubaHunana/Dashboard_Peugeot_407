@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -110,6 +111,36 @@ fun FuelWidget(modifier: Modifier, preview: Boolean) {
         }
         if (refuels.isEmpty()) {
             Text("Klepni a zapiš tankování", color = Palette.Muted, fontSize = 12.sp, modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth())
+        }
+    }
+}
+
+/** Nejnaléhavější termín ze servisní knížky. */
+@Composable
+fun ServiceWidget(modifier: Modifier, preview: Boolean = false) {
+    val entries by cz.kuba.dash407.data.ServiceBook.entries.collectAsState()
+    val intervals by cz.kuba.dash407.data.ServiceBook.intervals.collectAsState()
+    val fuel by FuelLog.entries.collectAsState()
+    val km = cz.kuba.dash407.data.ServiceBook.currentKm(fuel)
+    // entries a intervals jen spouštějí překreslení po změně v knížce.
+    val due = remember(entries, intervals, km) { cz.kuba.dash407.data.ServiceBook.mostUrgent(km) }
+    WidgetCard("Servis", modifier, onClick = if (preview) null else ({ UiBus.open(Panel.SERVICE) })) {
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+            if (due == null) {
+                Text("Zapiš první servis", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                Text("Servisní knížka je prázdná", color = Palette.Muted, fontSize = 13.sp)
+            } else {
+                Text(due.kind.label, color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                Text(
+                    cz.kuba.dash407.ui.levelText(due.level), color = cz.kuba.dash407.ui.levelColor(due.level),
+                    fontSize = 16.sp, fontWeight = FontWeight.Bold
+                )
+                val line = listOfNotNull(
+                    due.remainingKm?.let { if (it >= 0) "zbývá ${cz.kuba.dash407.ui.kmText(it)}" else "o ${cz.kuba.dash407.ui.kmText(-it)} přes" },
+                    due.remainingDays?.let { if (it >= 0) "za $it dní" else "o ${-it} dní přes" }
+                ).joinToString("\n")
+                if (line.isNotEmpty()) Text(line, color = Palette.Muted, fontSize = 13.sp)
+            }
         }
     }
 }

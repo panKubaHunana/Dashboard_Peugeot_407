@@ -36,6 +36,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
@@ -378,7 +380,7 @@ fun BottomBar(pages: List<Page>) {
         Spacer(Modifier.weight(1f))
         Row(
             Modifier.clip(RoundedCornerShape(50))
-                .border(1.dp, if (car.linked) Palette.Good else Color.White.copy(alpha = 0.25f), RoundedCornerShape(50))
+                .border(1.dp, if (car.linked) Palette.Good else Palette.Text.copy(alpha = 0.25f), RoundedCornerShape(50))
                 .clickable { UiBus.open(Panel.CAR) }
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -393,6 +395,8 @@ fun BottomBar(pages: List<Page>) {
                 DropdownMenuItem(text = { Text("Kam jedeme?") }, leadingIcon = { Icon(Icons.Filled.Search, null) }, onClick = { menu = false; UiBus.open(Panel.DESTINATION) })
                 DropdownMenuItem(text = { Text("Tankování") }, leadingIcon = { Icon(Icons.Filled.LocalGasStation, null) }, onClick = { menu = false; UiBus.open(Panel.FUEL) })
                 DropdownMenuItem(text = { Text("Auto a signály") }, leadingIcon = { Icon(Icons.Filled.DirectionsCar, null) }, onClick = { menu = false; UiBus.open(Panel.CAR) })
+                DropdownMenuItem(text = { Text("Servisní knížka") }, leadingIcon = { Icon(Icons.Filled.Build, null) }, onClick = { menu = false; UiBus.open(Panel.SERVICE) })
+                DropdownMenuItem(text = { Text("OBD adaptér") }, leadingIcon = { Icon(Icons.Filled.Bluetooth, null) }, onClick = { menu = false; UiBus.open(Panel.OBD) })
                 DropdownMenuItem(text = { Text("Nastavení") }, leadingIcon = { Icon(Icons.Filled.Settings, null) }, onClick = { menu = false; UiBus.open(Panel.SETTINGS) })
             }
         }
@@ -525,7 +529,7 @@ fun PagesDialog(pages: List<Page>) {
                                 val current = s == UiBus.slot
                                 Box(
                                     Modifier.size(104.dp, 72.dp).clip(RoundedCornerShape(14.dp))
-                                        .background(if (current) look.accent else Color.White.copy(alpha = if (page.enabled) 0.12f else 0.04f))
+                                        .background(if (current) look.accent else Palette.Text.copy(alpha = if (page.enabled) 0.12f else 0.04f))
                                         .clickable {
                                             if (!page.enabled) LayoutStore.setEnabled(s, true)
                                             UiBus.selected = null

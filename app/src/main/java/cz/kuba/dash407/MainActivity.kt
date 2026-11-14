@@ -26,6 +26,13 @@ import cz.kuba.dash407.nav.MapyLogo
 import cz.kuba.dash407.nav.Recent
 import cz.kuba.dash407.service.DriveService
 import cz.kuba.dash407.ui.Dash407Theme
+import cz.kuba.dash407.ui.IntroOverlay
+import cz.kuba.dash407.ui.IntroState
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -52,6 +59,8 @@ class MainActivity : ComponentActivity() {
         cz.kuba.dash407.nav.Tiles.init(this)
         cz.kuba.dash407.nav.NavEngine.init(this)
         FuelLog.init(this)
+        cz.kuba.dash407.data.ServiceBook.init(this)
+        cz.kuba.dash407.car.Obd.init()
         McuLink.start(packageName)
         AppsRepo.reload(this)
         if (Prefs.demo.value) Demo.start()
@@ -73,6 +82,7 @@ class MainActivity : ComponentActivity() {
         Gps.start(this)
         DriveService.start(this)
         NowPlaying.refresh(this)
+        cz.kuba.dash407.car.Obd.autoStart(this)
         AppsRepo.reload(this)
         // Palubní počítač odpovídá jen na dotaz: ptáme se, dokud je aplikace vidět.
         poll = scope.launch {
@@ -94,9 +104,16 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun AppRoot() {
+    val look by AppearanceStore.state.collectAsState()
+    var intro by remember { mutableStateOf(look.intro && !IntroState.playedThisProcess) }
     // Jako spouštěč nemá aplikace kam „zpět“: zavře panel nebo úpravy.
     BackHandler(enabled = true) {
         when {
+            intro || IntroState.preview -> {
+                IntroState.playedThisProcess = true
+                IntroState.preview = false
+                intro = false
+            }
             UiBus.panel != null -> UiBus.close()
             UiBus.editing -> {
                 UiBus.editing = false
@@ -108,5 +125,12 @@ private fun AppRoot() {
     Box(Modifier.fillMaxSize()) {
         HomeRoot()
         PanelHost()
+        if (intro || IntroState.preview) {
+            IntroOverlay {
+                IntroState.playedThisProcess = true
+                IntroState.preview = false
+                intro = false
+            }
+        }
     }
 }

@@ -84,7 +84,16 @@ import cz.kuba.dash407.ui.LocalLook
 import cz.kuba.dash407.ui.PanelHeader
 import cz.kuba.dash407.ui.Palette
 import cz.kuba.dash407.ui.Pill
+import cz.kuba.dash407.ui.FontChoices
+import cz.kuba.dash407.ui.IntroLogo
+import cz.kuba.dash407.ui.IntroState
+import cz.kuba.dash407.ui.IntroStyles
+import cz.kuba.dash407.ui.fontFamilyOf
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import cz.kuba.dash407.ui.SettingsScreen
+import cz.kuba.dash407.ui.ObdScreen
+import cz.kuba.dash407.ui.ServiceScreen
 import cz.kuba.dash407.ui.backgroundBrush
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -109,6 +118,8 @@ fun PanelHost() {
             Panel.CAR -> "Auto a signály"
             Panel.DESTINATION -> "Kam jedeme?"
             Panel.PICKER -> "Přidat na plochu"
+            Panel.OBD -> "OBD adaptér"
+            Panel.SERVICE -> "Servisní knížka"
             else -> ""
         }
         PanelHeader(title, onBack = { UiBus.close() })
@@ -120,6 +131,8 @@ fun PanelHost() {
                 Panel.CAR -> CarScreen()
                 Panel.DESTINATION -> DestinationPanel()
                 Panel.PICKER -> PickerPanel()
+                Panel.OBD -> ObdScreen()
+                Panel.SERVICE -> ServiceScreen()
                 else -> Unit
             }
         }
@@ -222,7 +235,7 @@ fun AppearancePanel() {
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.62f)
                 .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
-                .background(Color(0xF2121822))
+                .background(Palette.Sheet)
                 .pointerInput(Unit) { detectTapGestures { } }
         ) {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -261,7 +274,7 @@ fun AppearancePanel() {
                             Box(
                                 Modifier.size(64.dp, 86.dp).clip(RoundedCornerShape(12.dp))
                                     .background(backgroundBrush(i, look.accent))
-                                    .border(if (a.background == i) 3.dp else 1.dp, if (a.background == i) look.accent else Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                                    .border(if (a.background == i) 3.dp else 1.dp, if (a.background == i) look.accent else Palette.Text.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
                             )
                             Text(name, color = Palette.Muted, fontSize = 12.sp, maxLines = 1)
                         }
@@ -276,6 +289,50 @@ fun AppearancePanel() {
                 SwitchRow("Nadpisy widgetů", a.titles) { v -> AppearanceStore.update { it.copy(titles = v) } }
                 SwitchRow("Animace při přechodu mezi plochami", a.animations) { v -> AppearanceStore.update { it.copy(animations = v) } }
                 SwitchRow("Sekundy v hodinách", a.seconds) { v -> AppearanceStore.update { it.copy(seconds = v) } }
+                Section("Motiv")
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for ((id, name) in listOf("dark" to "Tmavý", "light" to "Světlý", "auto" to "Podle systému")) {
+                        Pill(name, a.theme == id) { AppearanceStore.update { it.copy(theme = id) } }
+                    }
+                }
+                Text("Světlý motiv je pro den; v noci oslňuje, proto je výchozí tmavý. „Podle systému“ se řídí nastavením Androidu v rádiu.", color = Palette.Muted, fontSize = 13.sp)
+                Section("Písmo")
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for ((id, name) in FontChoices) {
+                        Box(
+                            Modifier.clip(RoundedCornerShape(50))
+                                .background(if (a.font == id) look.accent.copy(alpha = 0.28f) else Palette.Text.copy(alpha = 0.07f))
+                                .border(1.dp, if (a.font == id) look.accent else Palette.Text.copy(alpha = 0.12f), RoundedCornerShape(50))
+                                .clickable { AppearanceStore.update { it.copy(font = id) } }
+                                .padding(horizontal = 16.dp, vertical = 9.dp)
+                        ) {
+                            Text(name, color = Palette.Text, fontSize = 16.sp, fontFamily = fontFamilyOf(id), maxLines = 1)
+                        }
+                    }
+                }
+                Section("Úvodní animace")
+                SwitchRow("Přehrát po spuštění", a.intro) { v -> AppearanceStore.update { it.copy(intro = v) } }
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for ((id, name) in IntroStyles) {
+                        Pill(name, a.introStyle == id) { AppearanceStore.update { it.copy(introStyle = id) } }
+                    }
+                }
+                SliderRow("Délka", "${"%.1f".format(a.introSeconds)} s", a.introSeconds, 2f..8f) { v -> AppearanceStore.update { it.copy(introSeconds = (v * 2).roundToInt() / 2f) } }
+                val ctx = LocalContext.current
+                var logoNote by remember { mutableStateOf(if (IntroLogo.exists(ctx)) "Vlastní obrázek je nahraný." else "Vlastní obrázek zatím není nahraný.") }
+                val pickLogo = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                    if (uri != null) {
+                        val ok = IntroLogo.save(ctx, uri)
+                        logoNote = if (ok) "Vlastní obrázek je nahraný." else "Obrázek se nepodařilo načíst."
+                        if (ok) AppearanceStore.update { it.copy(introStyle = "custom") }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Pill("Vybrat obrázek…", false) { pickLogo.launch(arrayOf("image/*")) }
+                    Pill("Smazat obrázek", false) { IntroLogo.delete(ctx); logoNote = "Vlastní obrázek zatím není nahraný." }
+                    Pill("Přehrát náhled", true) { UiBus.close(); IntroState.preview = true }
+                }
+                Text("$logoNote Nejlépe PNG s průhledným pozadím. Logo Peugeot je ochranná známka Peugeot / Stellantis; obrázek si dodáváš sám a zůstává jen v rádiu.", color = Palette.Muted, fontSize = 13.sp)
                 Section("Mapa")
                 SwitchRow("Tmavá (noční) mapa", a.darkMap) { v -> AppearanceStore.update { it.copy(darkMap = v) } }
                 for (group in MapSources.all.map { it.group }.distinct()) {

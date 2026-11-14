@@ -18,7 +18,14 @@ data class Appearance(
     val darkMap: Boolean = true,
     val mapStyle: String = "basic",
     val seconds: Boolean = false,
-    val cardTint: Boolean = false
+    val cardTint: Boolean = false,
+    /** dark, light, auto (podle světlometů a času – zatím podle systému). */
+    val theme: String = "dark",
+    val font: String = "default",
+    val intro: Boolean = true,
+    /** modern, retro, custom */
+    val introStyle: String = "modern",
+    val introSeconds: Float = 4f
 )
 
 object AppearanceStore {
@@ -47,7 +54,12 @@ object AppearanceStore {
                 darkMap = o.optBoolean("darkMap", d.darkMap),
                 mapStyle = o.optString("mapStyle", d.mapStyle),
                 seconds = o.optBoolean("seconds", d.seconds),
-                cardTint = o.optBoolean("cardTint", d.cardTint)
+                cardTint = o.optBoolean("cardTint", d.cardTint),
+                theme = o.optString("theme", d.theme),
+                font = o.optString("font", d.font),
+                intro = o.optBoolean("intro", d.intro),
+                introStyle = o.optString("introStyle", d.introStyle),
+                introSeconds = o.optDouble("introSeconds", d.introSeconds.toDouble()).toFloat()
             )
         } catch (e: Exception) {
             // Poškozené nastavení: zůstane výchozí vzhled.
@@ -71,6 +83,11 @@ object AppearanceStore {
             .put("mapStyle", a.mapStyle)
             .put("seconds", a.seconds)
             .put("cardTint", a.cardTint)
+            .put("theme", a.theme)
+            .put("font", a.font)
+            .put("intro", a.intro)
+            .put("introStyle", a.introStyle)
+            .put("introSeconds", a.introSeconds.toDouble())
         try {
             Prefs.shared().edit().putString(KEY, o.toString()).apply()
         } catch (e: Exception) {
