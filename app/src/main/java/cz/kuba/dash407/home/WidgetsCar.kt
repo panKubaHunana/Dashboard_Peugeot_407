@@ -30,7 +30,7 @@ import cz.kuba.dash407.ui.Palette
 import cz.kuba.dash407.ui.Reading
 import cz.kuba.dash407.ui.WidgetCard
 import cz.kuba.dash407.ui.decimal
-import cz.kuba.dash407.ui.drawCar
+import cz.kuba.dash407.ui.CarPicture
 
 @Composable
 fun CarComputerWidget(modifier: Modifier) {
@@ -54,9 +54,7 @@ fun DoorsWidget(modifier: Modifier) {
     val doors = car.doors
     WidgetCard("Dveře", modifier) {
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            Canvas(Modifier.fillMaxHeight().aspectRatio(0.55f).padding(vertical = 4.dp)) {
-                drawCar(doors ?: Doors())
-            }
+            CarPicture(doors ?: Doors(), Modifier.fillMaxHeight().padding(vertical = 4.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(

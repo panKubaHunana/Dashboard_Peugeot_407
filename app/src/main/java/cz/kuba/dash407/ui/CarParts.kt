@@ -1,6 +1,8 @@
 package cz.kuba.dash407.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -67,9 +69,7 @@ fun DoorsTile(car: CarState, modifier: Modifier) {
     Tile(stringResource(R.string.home_doors_title), modifier) {
         val doors = car.doors
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            Canvas(Modifier.fillMaxHeight().aspectRatio(0.55f).padding(vertical = 8.dp)) {
-                drawCar(doors ?: Doors())
-            }
+            CarPicture(doors ?: Doors(), Modifier.fillMaxHeight().padding(vertical = 8.dp))
             Spacer(Modifier.width(12.dp))
             Column {
                 val text = when {
@@ -102,30 +102,45 @@ fun DoorsTile(car: CarState, modifier: Modifier) {
     }
 }
 
-/** Auto při pohledu shora; otevřené dveře jsou červené. */
+/** Poměr šířky a výšky obrázku auta (car_407sw.png). */
+private const val CAR_ASPECT = 0.451f
+
+/** Peugeot 407 SW při pohledu shora; otevřené dveře, kapota a páté dveře svítí červeně. */
+@Composable
+fun CarPicture(doors: Doors, modifier: Modifier = Modifier) {
+    Box(modifier.aspectRatio(0.68f)) {
+        Image(
+            painterResource(R.drawable.car_407sw), "Peugeot 407 SW shora",
+            Modifier.fillMaxSize(), contentScale = ContentScale.Fit
+        )
+        Canvas(Modifier.fillMaxSize()) { drawCar(doors) }
+    }
+}
+
+/** Značky dveří nad obrázkem auta. Levá strana vozu je na obrazovce vlevo. */
 fun DrawScope.drawCar(doors: Doors) {
     val w = size.width
     val h = size.height
-    val bodyLeft = w * 0.2f
-    val bodyWidth = w * 0.6f
-    val closed = Palette.TileHigh
-    val open = Palette.Bad
-    drawRoundRect(
-        color = Palette.Muted,
-        topLeft = Offset(bodyLeft, 0f),
-        size = Size(bodyWidth, h),
-        cornerRadius = CornerRadius(bodyWidth * 0.35f),
-        style = Stroke(3.dp.toPx())
-    )
-    // Kapota a páté dveře.
-    drawRoundRect(if (doors.bonnet) open else closed, Offset(bodyLeft + bodyWidth * 0.15f, h * 0.04f), Size(bodyWidth * 0.7f, h * 0.16f), CornerRadius(12f))
-    drawRoundRect(if (doors.tailgate) open else closed, Offset(bodyLeft + bodyWidth * 0.15f, h * 0.84f), Size(bodyWidth * 0.7f, h * 0.12f), CornerRadius(12f))
-    // Boční dveře: levá strana vozu je na obrazovce vlevo.
-    val doorW = w * 0.14f
+    val bw = minOf(h * CAR_ASPECT, w * 0.7f)
+    val left = (w - bw) / 2f
+    val red = Palette.Bad
+    val outline = Palette.Muted.copy(alpha = 0.7f)
+    val line = Stroke(1.5.dp.toPx())
+    // Kapota a páté dveře: jen při otevření, červený nádech přes karoserii.
+    if (doors.bonnet) drawRoundRect(red.copy(alpha = 0.45f), Offset(left + bw * 0.1f, h * 0.02f), Size(bw * 0.8f, h * 0.2f), CornerRadius(14f))
+    if (doors.tailgate) drawRoundRect(red.copy(alpha = 0.45f), Offset(left + bw * 0.12f, h * 0.8f), Size(bw * 0.76f, h * 0.18f), CornerRadius(14f))
+    val doorW = w * 0.13f
     val doorH = h * 0.2f
-    drawRoundRect(if (doors.frontLeft) open else closed, Offset(0f, h * 0.3f), Size(doorW, doorH), CornerRadius(8f))
-    drawRoundRect(if (doors.frontRight) open else closed, Offset(w - doorW, h * 0.3f), Size(doorW, doorH), CornerRadius(8f))
-    drawRoundRect(if (doors.rearLeft) open else closed, Offset(0f, h * 0.55f), Size(doorW, doorH), CornerRadius(8f))
-    drawRoundRect(if (doors.rearRight) open else closed, Offset(w - doorW, h * 0.55f), Size(doorW, doorH), CornerRadius(8f))
+    fun door(open: Boolean, x: Float, y: Float, bodyX: Float) {
+        val tl = Offset(x, y)
+        val sz = Size(doorW, doorH)
+        drawRoundRect(if (open) red.copy(alpha = 0.75f) else Palette.TileHigh.copy(alpha = 0.55f), tl, sz, CornerRadius(8f))
+        drawRoundRect(if (open) red else outline, tl, sz, CornerRadius(8f), style = line)
+        if (open) drawRoundRect(red.copy(alpha = 0.35f), Offset(bodyX, y), Size(bw * 0.3f, doorH), CornerRadius(8f))
+    }
+    val rightBody = left + bw * 0.7f
+    door(doors.frontLeft, 0f, h * 0.3f, left)
+    door(doors.frontRight, w - doorW, h * 0.3f, rightBody)
+    door(doors.rearLeft, 0f, h * 0.55f, left)
+    door(doors.rearRight, w - doorW, h * 0.55f, rightBody)
 }
-
