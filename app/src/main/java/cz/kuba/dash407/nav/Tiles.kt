@@ -20,7 +20,10 @@ import java.io.File
 /** Načítání mapových dlaždic (Mapy.com, OpenStreetMap, OpenTopoMap, Google) s pamětí v RAM a pro otevřené mapy i na disku. */
 object Tiles {
     private const val DISK_DAYS = 7L
-    private val cache = LruCache<String, ImageBitmap>(220)
+    // Paměť podle velikosti (kB): dlaždice @2x mají 512 × 512 px, tedy asi 1 MB.
+    private val cache = object : LruCache<String, ImageBitmap>(96 * 1024) {
+        override fun sizeOf(key: String, value: ImageBitmap): Int = (value.width * value.height * 4 / 1024).coerceAtLeast(1)
+    }
     private val loading = HashSet<String>()
     private val failed = HashMap<String, Long>()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

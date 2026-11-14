@@ -105,10 +105,18 @@ fun HomeRoot() {
 
     fun go(dx: Int, dy: Int) {
         val now = UiBus.slot
-        val target = Slot.at(now.dx + dx, now.dy + dy) ?: return
-        if (currentPages.firstOrNull { it.slot == target }?.enabled == true) {
-            UiBus.selected = null
-            UiBus.slot = target
+        // Vypnuté plochy se přeskočí (třeba když je plocha „dole“ vypnutá, tah vede rovnou do Menu).
+        var x = now.dx
+        var y = now.dy
+        for (step in 0 until 3) {
+            x += dx
+            y += dy
+            val target = Slot.at(x, y) ?: return
+            if (target == Slot.MENU || currentPages.firstOrNull { it.slot == target }?.enabled == true) {
+                UiBus.selected = null
+                UiBus.slot = target
+                return
+            }
         }
     }
 
@@ -140,11 +148,17 @@ fun HomeRoot() {
                 transitionSpec = { pageTransition(initialState, targetState, look.animations) },
                 label = "plochy"
             ) { s ->
-                val page = pages.firstOrNull { it.slot == s } ?: pages.first()
-                PageGrid(page, editing, undo)
+                if (s == Slot.MENU) {
+                    MenuPage(pages)
+                } else {
+                    val page = pages.firstOrNull { it.slot == s } ?: pages.first()
+                    PageGrid(page, editing, undo)
+                }
             }
+            if (!editing) PageHint(pages, slot, Modifier.align(Alignment.BottomCenter))
         }
-        if (editing) EditBar(pages, undo) else BottomBar(pages)
+        // Spodní lišta zmizela (místo pro widgety); její tlačítka jsou na ploše Menu. Zůstává jen lišta úprav.
+        if (editing && slot != Slot.MENU) EditBar(pages, undo)
     }
 
     when (UiBus.panel) {
@@ -190,7 +204,7 @@ fun PageGrid(page: Page, editing: Boolean, undo: MutableList<Pair<Slot, List<Cel
             Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Plocha „${page.name}“ je prázdná", color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    if (editing) "Klepni na + a přidej widget" else "Klepni na Rozložení a přidej widgety",
+                    if (editing) "Klepni na + a přidej widget" else "V Menu klepni na Rozložení a přidej widgety",
                     color = Palette.Muted, fontSize = 15.sp
                 )
             }
@@ -303,7 +317,31 @@ private fun CellBox(
     }
 }
 
-/** Kříž se zvýrazněnou aktuální plochou (jako v Dashwheel). */
+/** Po přechodu na jinou plochu se na 2,5 s ukáže kříž s názvem plochy, pak zmizí. */
+@Composable
+private fun PageHint(pages: List<Page>, slot: Slot, modifier: Modifier) {
+    var visible by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(slot) {
+        visible = true
+        kotlinx.coroutines.delay(2500)
+        visible = false
+    }
+    androidx.compose.animation.AnimatedVisibility(
+        visible = visible, enter = fadeIn(tween(200)), exit = fadeOut(tween(600)), modifier = modifier.padding(bottom = 14.dp)
+    ) {
+        Row(
+            Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CrossIndicator(pages, slot, 8.dp)
+            Spacer(Modifier.width(10.dp))
+            val name = if (slot == Slot.MENU) "Menu" else pages.firstOrNull { it.slot == slot }?.name ?: ""
+            Text(name, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        }
+    }
+}
+
+/** Kříž se zvýrazněnou aktuální plochou (jako v Dashwheel); pod ním malé Menu. */
 @Composable
 fun CrossIndicator(pages: List<Page>, current: Slot, cell: androidx.compose.ui.unit.Dp = 10.dp, onClick: (() -> Unit)? = null) {
     val look = LocalLook.current
@@ -313,7 +351,7 @@ fun CrossIndicator(pages: List<Page>, current: Slot, cell: androidx.compose.ui.u
         verticalArrangement = Arrangement.spacedBy(gap),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        for (row in -1..1) {
+        for (row in -1..2) {
             Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
                 for (col in -1..1) {
                     val s = Slot.at(col, row)
@@ -323,6 +361,7 @@ fun CrossIndicator(pages: List<Page>, current: Slot, cell: androidx.compose.ui.u
                     when {
                         s == null -> Spacer(m)
                         s == current -> Box(m.clip(shape).background(look.accent))
+                        s == Slot.MENU -> Box(m.clip(CircleShape).border(1.5.dp, look.accent.copy(alpha = 0.8f), CircleShape))
                         page?.enabled == true -> Box(m.clip(shape).border(1.5.dp, Color.White.copy(alpha = 0.7f), shape))
                         else -> Box(m.clip(shape).border(1.dp, Color.White.copy(alpha = 0.18f), shape))
                     }
@@ -342,65 +381,6 @@ private fun BarButton(icon: ImageVector, text: String?, onClick: () -> Unit) {
         if (text != null) {
             Spacer(Modifier.width(6.dp))
             Text(text, color = Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-        }
-    }
-}
-
-/** Spodní lišta: aplikace, rozložení, vzhled, hodiny, kříž ploch, stav auta a menu. */
-@Composable
-fun BottomBar(pages: List<Page>) {
-    val look = LocalLook.current
-    val now by rememberNow()
-    val car by CarRepo.state.collectAsState()
-    var menu by remember { mutableStateOf(false) }
-    val page = pages.firstOrNull { it.slot == UiBus.slot }
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp).height(60.dp)
-            .clip(RoundedCornerShape(look.corner.coerceAtMost(30.dp)))
-            .background(look.card)
-            .padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        BarButton(Icons.Filled.Apps, "Aplikace") { UiBus.open(Panel.APPS) }
-        BarButton(Icons.Filled.Dashboard, "Rozložení") {
-            UiBus.selected = null
-            UiBus.editing = true
-        }
-        BarButton(Icons.Filled.AutoAwesome, null) { UiBus.open(Panel.APPEARANCE) }
-        Spacer(Modifier.weight(1f))
-        Text(timeText(now, false), color = Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.width(14.dp))
-        Row(
-            Modifier.clip(RoundedCornerShape(12.dp)).clickable { UiBus.open(Panel.PAGES) }.padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            CrossIndicator(pages, UiBus.slot, 9.dp)
-            Spacer(Modifier.width(8.dp))
-            Text(page?.name ?: "", color = Palette.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(90.dp))
-        }
-        Spacer(Modifier.weight(1f))
-        Row(
-            Modifier.clip(RoundedCornerShape(50))
-                .border(1.dp, if (car.linked) Palette.Good else Palette.Text.copy(alpha = 0.25f), RoundedCornerShape(50))
-                .clickable { UiBus.open(Panel.CAR) }
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(Modifier.size(8.dp).clip(CircleShape).background(if (car.linked) Palette.Good else Palette.Muted))
-            Spacer(Modifier.width(6.dp))
-            Text("AUTO", color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-        }
-        Box {
-            BarButton(Icons.Filled.MoreVert, null) { menu = true }
-            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                DropdownMenuItem(text = { Text("Kam jedeme?") }, leadingIcon = { Icon(Icons.Filled.Search, null) }, onClick = { menu = false; UiBus.open(Panel.DESTINATION) })
-                DropdownMenuItem(text = { Text("Tankování") }, leadingIcon = { Icon(Icons.Filled.LocalGasStation, null) }, onClick = { menu = false; UiBus.open(Panel.FUEL) })
-                DropdownMenuItem(text = { Text("Auto a signály") }, leadingIcon = { Icon(Icons.Filled.DirectionsCar, null) }, onClick = { menu = false; UiBus.open(Panel.CAR) })
-                DropdownMenuItem(text = { Text("Servisní knížka") }, leadingIcon = { Icon(Icons.Filled.Build, null) }, onClick = { menu = false; UiBus.open(Panel.SERVICE) })
-                DropdownMenuItem(text = { Text("Zvuk, volant a klimatizace") }, leadingIcon = { Icon(Icons.Filled.Tune, null) }, onClick = { menu = false; UiBus.open(Panel.CARAPPS) })
-                DropdownMenuItem(text = { Text("OBD adaptér") }, leadingIcon = { Icon(Icons.Filled.Bluetooth, null) }, onClick = { menu = false; UiBus.open(Panel.OBD) })
-                DropdownMenuItem(text = { Text("Nastavení") }, leadingIcon = { Icon(Icons.Filled.Settings, null) }, onClick = { menu = false; UiBus.open(Panel.SETTINGS) })
-            }
         }
     }
 }
@@ -518,7 +498,7 @@ fun PagesDialog(pages: List<Page>) {
         title = { Text("Plochy") },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                Text("Mezi plochami přejíždíš tahem prstu. Klepni na plochu, na kterou chceš přejít.", color = Palette.Muted, fontSize = 15.sp)
+                Text("Mezi plochami přejíždíš tahem prstu. Menu s nastavením je pod plochou dole. Klepni na plochu, na kterou chceš přejít.", color = Palette.Muted, fontSize = 15.sp)
                 Spacer(Modifier.height(12.dp))
                 for (row in -1..1) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -552,6 +532,19 @@ fun PagesDialog(pages: List<Page>) {
                         }
                     }
                     Spacer(Modifier.height(8.dp))
+                }
+                val onMenu = UiBus.slot == Slot.MENU
+                Box(
+                    Modifier.size(104.dp, 56.dp).clip(RoundedCornerShape(14.dp))
+                        .background(if (onMenu) look.accent else Palette.Text.copy(alpha = 0.12f))
+                        .clickable {
+                            UiBus.selected = null
+                            UiBus.slot = Slot.MENU
+                            UiBus.close()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Menu", color = if (onMenu) Color(0xFF06121C) else Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         },

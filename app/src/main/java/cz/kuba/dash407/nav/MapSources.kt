@@ -23,7 +23,11 @@ data class MapSource(
     val link: String,
     val maxZoom: Int,
     /** Otevřené servery chtějí, aby si aplikace dlaždice pamatovala (OSM: aspoň 7 dní). */
-    val diskCache: Boolean
+    val diskCache: Boolean,
+    /** Podklad, který se použije při zapnuté tmavé mapě místo převrácení barev (null = převrátit barvy). */
+    val night: String? = null,
+    /** Sám je tmavý: barvy se nepřevracejí. */
+    val dark: Boolean = false
 )
 
 object MapSources {
@@ -32,12 +36,23 @@ object MapSources {
         MapSource("outdoor", "Turistická", "Mapy.com", KeyNeed.MAPY, "© Seznam.cz a.s. a další", "https://api.mapy.com/copyright", 19, false),
         MapSource("winter", "Zimní", "Mapy.com", KeyNeed.MAPY, "© Seznam.cz a.s. a další", "https://api.mapy.com/copyright", 19, false),
         MapSource("aerial", "Letecká", "Mapy.com", KeyNeed.MAPY, "© Seznam.cz a.s. a další", "https://api.mapy.com/copyright", 19, false),
+        MapSource("carto_voyager", "Voyager", "CARTO", KeyNeed.NONE, "© OpenStreetMap © CARTO", "https://carto.com/attributions", 20, true, night = "carto_dark"),
+        MapSource("carto_dark", "Tmavá", "CARTO", KeyNeed.NONE, "© OpenStreetMap © CARTO", "https://carto.com/attributions", 20, true, dark = true),
+        MapSource("carto_light", "Světlá", "CARTO", KeyNeed.NONE, "© OpenStreetMap © CARTO", "https://carto.com/attributions", 20, true, night = "carto_dark"),
+        MapSource("esri_street", "Silniční", "Esri", KeyNeed.NONE, "Esri, HERE, Garmin, © OpenStreetMap", "https://www.esri.com/en-us/legal/terms/full-master-agreement", 19, true),
+        MapSource("esri_sat", "Satelit", "Esri", KeyNeed.NONE, "Esri, Maxar, Earthstar Geographics", "https://www.esri.com/en-us/legal/terms/full-master-agreement", 19, true, dark = true),
         MapSource("osm", "OpenStreetMap", "Open source", KeyNeed.NONE, "© přispěvatelé OpenStreetMap", "https://www.openstreetmap.org/copyright", 19, true),
         MapSource("otm", "OpenTopoMap", "Open source", KeyNeed.NONE, "© OpenStreetMap, SRTM | © OpenTopoMap (CC-BY-SA)", "https://opentopomap.org/about", 17, true),
         MapSource("g_roadmap", "Google mapa", "Google", KeyNeed.GOOGLE, "Google", "https://www.google.com/intl/cs/help/terms_maps/", 20, false),
         MapSource("g_satellite", "Google satelit", "Google", KeyNeed.GOOGLE, "Google", "https://www.google.com/intl/cs/help/terms_maps/", 20, false),
         MapSource("g_terrain", "Google terén", "Google", KeyNeed.GOOGLE, "Google", "https://www.google.com/intl/cs/help/terms_maps/", 15, false)
     )
+
+    /** Co se opravdu kreslí: u tmavé mapy případně tmavá varianta téhož poskytovatele. */
+    fun effective(id: String, darkMap: Boolean): MapSource {
+        val s = of(id)
+        return if (darkMap && s.night != null) of(s.night) else s
+    }
 
     fun of(id: String): MapSource = all.firstOrNull { it.id == id } ?: all.first()
 
@@ -52,6 +67,11 @@ object MapSources {
     /** Adresa dlaždice. Volat mimo hlavní vlákno (Google si napoprvé zakládá relaci). */
     fun url(id: String, z: Int, x: Int, y: Int): String = when (id) {
         "osm" -> "https://tile.openstreetmap.org/$z/$x/$y.png"
+        "carto_voyager" -> "https://${"abcd"[(x + y) % 4]}.basemaps.cartocdn.com/rastertiles/voyager/$z/$x/$y@2x.png"
+        "carto_dark" -> "https://${"abcd"[(x + y) % 4]}.basemaps.cartocdn.com/dark_all/$z/$x/$y@2x.png"
+        "carto_light" -> "https://${"abcd"[(x + y) % 4]}.basemaps.cartocdn.com/light_all/$z/$x/$y@2x.png"
+        "esri_street" -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/$z/$y/$x"
+        "esri_sat" -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/$z/$y/$x"
         "otm" -> "https://${"abc"[(x + y) % 3]}.tile.opentopomap.org/$z/$x/$y.png"
         "g_roadmap", "g_satellite", "g_terrain" -> {
             val key = Prefs.googleKey.value

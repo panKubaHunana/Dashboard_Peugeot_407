@@ -132,7 +132,7 @@ fun MapView(modifier: Modifier, zoomIn: Int) {
     val look = LocalLook.current
     val mapyKey by Prefs.mapyKey.collectAsState()
     val googleKey by Prefs.googleKey.collectAsState()
-    val src = MapSources.of(look.mapStyle)
+    val src = MapSources.effective(look.mapStyle, look.darkMap)
     val zoom = zoomIn.coerceAtMost(src.maxZoom)
     val hasKey = when (src.key) {
         KeyNeed.NONE -> true
@@ -146,7 +146,8 @@ fun MapView(modifier: Modifier, zoomIn: Int) {
     val version by Tiles.version.collectAsState()
     val density = LocalDensity.current.density
     val tileSize = 256f * (density * 0.8f).coerceAtLeast(1f)
-    val filter = if (look.darkMap) nightFilter else null
+    // Tmavé podklady (CARTO Tmavá, satelit) a noční varianty se nepřebarvují.
+    val filter = if (look.darkMap && !src.dark && MapSources.of(look.mapStyle).night == null) nightFilter else null
     val style = src.id
     val accent = look.accent
     Canvas(modifier.background(if (look.darkMap) Color(0xFF1B2430) else Color(0xFFE8E4DA))) {
@@ -368,7 +369,7 @@ fun MapWidget(modifier: Modifier, preview: Boolean) {
     val look = LocalLook.current
     val mapyKey by Prefs.mapyKey.collectAsState()
     val googleKey by Prefs.googleKey.collectAsState()
-    val src = MapSources.of(look.mapStyle)
+    val src = MapSources.effective(look.mapStyle, look.darkMap)
     val hasKey = when (src.key) {
         KeyNeed.NONE -> true
         KeyNeed.MAPY -> mapyKey.isNotBlank()
@@ -416,7 +417,7 @@ fun MapWidget(modifier: Modifier, preview: Boolean) {
             ) {
                 Icon(Icons.Filled.Map, null, tint = look.accent, modifier = Modifier.size(36.dp))
                 Text("Podklad ${src.group} potřebuje API klíč", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-                Text("Klepni a zadej ho v Nastavení, nebo ve Vzhledu přepni na OpenStreetMap (bez klíče).", color = Palette.Muted, fontSize = 14.sp, textAlign = TextAlign.Center)
+                Text("Klepni a zadej ho v Nastavení, nebo ve Vzhledu přepni na CARTO či Esri (bez klíče).", color = Palette.Muted, fontSize = 14.sp, textAlign = TextAlign.Center)
             }
         }
         // Povinné označení podkladů: u Mapy.com logo, u všech autorská práva s odkazem.

@@ -2,6 +2,8 @@ package cz.kuba.dash407.car
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothClass
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.Context
@@ -32,6 +34,9 @@ data class ObdConfig(
     val autoConnect: Boolean = false,
     val intervalMs: Int = 500
 )
+
+/** Spárované zařízení Bluetooth. [notAdapter] = podle třídy zařízení jde o telefon, počítač nebo audio, ne o OBD adaptér. */
+data class BtDevice(val name: String, val address: String, val notAdapter: String?)
 
 /** Poslední známé hodnoty z auta přes OBD; null = adaptér je neposlal. */
 data class ObdLive(
@@ -106,13 +111,69 @@ object Obd {
 
     /** Spárovaná zařízení Bluetooth. Bez oprávnění nebo bez Bluetooth vrací prázdný seznam. */
     @SuppressLint("MissingPermission")
-    fun pairedDevices(context: Context): List<Pair<String, String>> = try {
+    fun pairedDevices(context: Context): List<BtDevice> = try {
         val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
-        adapter?.bondedDevices?.map { (it.name ?: it.address) to it.address }?.sortedBy { it.first } ?: emptyList()
+        adapter?.bondedDevices?.map { d ->
+            val major = try { d.bluetoothClass?.majorDeviceClass } catch (e: Exception) { null }
+            val kind = when (major) {
+                BluetoothClass.Device.Major.PHONE -> "telefon"
+                BluetoothClass.Device.Major.COMPUTER -> "počítač"
+                BluetoothClass.Device.Major.AUDIO_VIDEO -> "sluchátka / audio"
+                BluetoothClass.Device.Major.WEARABLE -> "hodinky"
+                else -> null
+            }
+            BtDevice(d.name ?: d.address, d.address, kind)
+        }?.sortedWith(compareBy({ it.notAdapter != null }, { it.name })) ?: emptyList()
     } catch (e: SecurityException) {
         emptyList()
     } catch (e: Exception) {
         emptyList()
+    }
+
+    /**
+     * Otevře sériový kanál (SPP) k adaptéru. Levné klony ELM327 často nemají správný záznam služby,
+     * proto se zkouší postupně: zabezpečené spojení, nezabezpečené a nakonec přímo kanál 1.
+     */
+    @SuppressLint("MissingPermission")
+    private fun openRfcomm(device: BluetoothDevice): BluetoothSocket {
+        var last: Exception? = null
+        val attempts = listOf<Pair<String, () -> BluetoothSocket>>(
+            "SPP" to { device.createRfcommSocketToServiceRecord(SPP) },
+            "SPP bez zabezpečení" to { device.createInsecureRfcommSocketToServiceRecord(SPP) },
+            "kanál 1" to {
+                device.javaClass.getMethod("createRfcommSocket", Int::class.javaPrimitiveType)
+                    .invoke(device, 1) as BluetoothSocket
+            }
+        )
+        for ((label, make) in attempts) {
+            var s: BluetoothSocket? = null
+            try {
+                s = make()
+                s.connect()
+                log("Spojeno ($label)")
+                return s
+            } catch (e: SecurityException) {
+                try { s?.close() } catch (x: Exception) { }
+                throw e
+            } catch (e: Exception) {
+                try { s?.close() } catch (x: Exception) { }
+                log("$label: ${e.message ?: e.javaClass.simpleName}")
+                last = e
+            }
+        }
+        throw last ?: java.io.IOException("spojení selhalo")
+    }
+
+    /** Srozumitelný český text pro typické chyby Bluetooth. */
+    private fun explain(e: Exception, cfg: ObdConfig): String {
+        val m = (e.message ?: "").lowercase()
+        return when {
+            cfg.mode == "wifi" -> "Adaptér Wi-Fi neodpovídá na ${cfg.host}:${cfg.port}. Je rádio připojené k Wi-Fi síti adaptéru?"
+            m.contains("read failed") || m.contains("socket might closed") || m.contains("timeout") ->
+                "Zařízení „${cfg.btName.ifBlank { cfg.btAddress }}“ spojení odmítlo. Nejde o OBD adaptér ELM327, nebo není zapojený v zásuvce OBD a zapalování je vypnuté."
+            m.contains("refused") || m.contains("discovery") -> "Adaptér je mimo dosah nebo právě spojený s jiným zařízením (telefonem)."
+            else -> "Spojení selhalo: ${e.message ?: e.javaClass.simpleName}"
+        }
     }
 
     fun bluetoothAvailable(context: Context): Boolean =
@@ -150,8 +211,7 @@ object Obd {
                     if (adapter == null || !adapter.isEnabled) { fail("Bluetooth je vypnutý."); return@launch }
                     log("Bluetooth ${cfg.btName.ifBlank { cfg.btAddress }}")
                     adapter.cancelDiscovery()
-                    socket = adapter.getRemoteDevice(cfg.btAddress).createRfcommSocketToServiceRecord(SPP)
-                    socket.connect()
+                    socket = openRfcomm(adapter.getRemoteDevice(cfg.btAddress))
                     input = socket.inputStream; output = socket.outputStream
                 }
                 val port = Port(input, output)
@@ -189,7 +249,7 @@ object Obd {
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                fail("Spojení selhalo: ${e.message ?: e.javaClass.simpleName}")
+                fail(explain(e, cfg))
             } finally {
                 try { socket?.close() } catch (e: Exception) { }
                 try { tcp?.close() } catch (e: Exception) { }

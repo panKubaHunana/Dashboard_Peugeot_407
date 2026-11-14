@@ -67,7 +67,7 @@
     <string name="car_warnings_title">Výstrahy vozu</string>
     <string name="car_warnings_none">Auto nehlásí žádnou výstrahu.</string>
     <string name="car_warning_code">Výstraha s kódem %1$s</string>
-    <string name="car_warnings_hint">Texty výstrah doplníme, až ověříme kódy přímo v autě.</string>
+    <string name="car_warnings_hint">Význam kódů z CAN boxu není ověřený. Až se výstraha objeví, podívej se, co píše displej auta, a klepni na Pojmenovat.</string>
     <string name="signals_title">Signály z jednotky</string>
     <string name="signals_hint">Poslední podoba každé zprávy z MCU a CAN boxu. Podle těchto dat ověříme, co Peugeot 407 opravdu posílá.</string>
     <string name="signals_waiting">Spojeno s jednotkou, čekám na první zprávu. Zapni zapalování.</string>

@@ -29,6 +29,9 @@ data class CarState(
     val trip2: TripPage? = null,
     val doors: Doors? = null,
     val warnings: List<Int> = emptyList(),
+    /** Celý poslední rámec výstrah (hex) a kdy přišel – pro ověření významu kódů. */
+    val warningsRaw: String? = null,
+    val warningsAt: Long = 0L,
     val volts: Double? = null,
     val headlights: Boolean? = null,
     val handbrake: Boolean? = null

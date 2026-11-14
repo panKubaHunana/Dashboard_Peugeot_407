@@ -102,20 +102,28 @@ fun ObdScreen() {
                     if (devices.isEmpty()) {
                         Text("Žádné zařízení. Spáruj adaptér a klepni na Obnovit.", color = Palette.Muted, fontSize = 14.sp)
                     }
-                    for ((name, address) in devices) {
-                        val sel = cfg.btAddress == address
+                    for (dev in devices) {
+                        val sel = cfg.btAddress == dev.address
                         Row(
-                            Modifier.fillMaxWidth().clickable { Obd.update { it.copy(btAddress = address, btName = name) } }.padding(vertical = 8.dp),
+                            Modifier.fillMaxWidth().clickable { Obd.update { it.copy(btAddress = dev.address, btName = dev.name) } }.padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(if (sel) "●" else "○", color = if (sel) LocalLook.current.accent else Palette.Muted, fontSize = 20.sp)
                             Spacer(Modifier.width(10.dp))
                             Column {
-                                Text(name, color = Palette.Text, fontSize = 16.sp)
-                                Text(address, color = Palette.Muted, fontSize = 13.sp)
+                                Text(dev.name, color = Palette.Text, fontSize = 16.sp)
+                                Text(dev.address, color = Palette.Muted, fontSize = 13.sp)
+                                dev.notAdapter?.let {
+                                    Text("Tohle je $it, ne OBD adaptér – data z auta neposílá.", color = Palette.Amber, fontSize = 13.sp)
+                                }
                             }
                         }
                     }
+                    Text(
+                        "Potřebuješ adaptér ELM327 zapojený do zásuvky OBD pod volantem. Telefon (ani iPhone) se jako adaptér použít nedá. " +
+                            "Bluetooth adaptéry „BLE / iOS“ rádio přes tento seznam nevidí – vyber klasický Bluetooth (SPP) nebo Wi-Fi.",
+                        color = Palette.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp)
+                    )
                 }
             } else {
                 OutlinedTextField(

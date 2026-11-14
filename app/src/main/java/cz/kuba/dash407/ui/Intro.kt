@@ -224,10 +224,5 @@ fun IntroOverlay(onDone: () -> Unit) {
                 }
             }
         }
-        Text(
-            "Dash 407", color = Color(0xFF8A96A8).copy(alpha = 0.7f * seg(0.5f, 0.75f)),
-            fontSize = 14.sp, letterSpacing = 3.sp,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 36.dp)
-        )
     }
 }

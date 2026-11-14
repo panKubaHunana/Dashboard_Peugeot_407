@@ -10,7 +10,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import cz.kuba.dash407.car.WarningLabels
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -27,6 +36,26 @@ import cz.kuba.dash407.car.TripPage
 fun CarScreen() {
     val car by CarRepo.state.collectAsState()
     val raw by CarRepo.raw.collectAsState()
+    val labels by WarningLabels.labels.collectAsState()
+    var naming by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(Unit) { WarningLabels.init() }
+
+    naming?.let { code ->
+        var text by remember(code) { mutableStateOf(labels[code] ?: "") }
+        AlertDialog(
+            onDismissRequest = { naming = null },
+            title = { Text("Výstraha s kódem " + String.format("%02X", code)) },
+            text = {
+                Column {
+                    Text("Napiš, co v tu chvíli ukázal displej auta (např. „Rozsvícená světla“). Text se pak zobrazí místo kódu.", fontSize = 15.sp)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(value = text, onValueChange = { text = it.take(60) }, singleLine = true)
+                }
+            },
+            confirmButton = { TextButton(onClick = { WarningLabels.set(code, text); naming = null }) { Text("Uložit") } },
+            dismissButton = { TextButton(onClick = { naming = null }) { Text("Zrušit") } }
+        )
+    }
 
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = 12.dp),
@@ -59,10 +88,23 @@ fun CarScreen() {
                     Text(stringResource(R.string.car_warnings_none), color = Palette.Muted, fontSize = 16.sp)
                 } else {
                     for (code in car.warnings) {
+                        val label = labels[code]
+                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    label ?: stringResource(R.string.car_warning_code, String.format("%02X", code)),
+                                    color = Palette.Amber,
+                                    fontSize = 17.sp
+                                )
+                                if (label != null) Text("kód " + String.format("%02X", code), color = Palette.Muted, fontSize = 13.sp)
+                            }
+                            TextButton(onClick = { naming = code }) { Text(if (label == null) "Pojmenovat" else "Upravit") }
+                        }
+                    }
+                    car.warningsRaw?.let {
                         Text(
-                            stringResource(R.string.car_warning_code, String.format("%02X", code)),
-                            color = Palette.Amber,
-                            fontSize = 17.sp
+                            "Rámec: $it · " + java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(car.warningsAt)),
+                            color = Palette.Muted, fontSize = 13.sp, fontFamily = FontFamily.Monospace
                         )
                     }
                     Text(stringResource(R.string.car_warnings_hint), color = Palette.Muted, fontSize = 13.sp)

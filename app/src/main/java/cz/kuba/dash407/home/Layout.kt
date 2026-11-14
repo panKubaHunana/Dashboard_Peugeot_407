@@ -12,7 +12,9 @@ enum class Slot(val dx: Int, val dy: Int, val where: String) {
     UP(0, -1, "nahoře"),
     DOWN(0, 1, "dole"),
     LEFT(-1, 0, "vlevo"),
-    RIGHT(1, 0, "vpravo");
+    RIGHT(1, 0, "vpravo"),
+    /** Speciální plocha Menu pod plochou „dole“ – nemá widgety, nahrazuje spodní lištu. */
+    MENU(0, 2, "menu");
 
     companion object {
         fun at(dx: Int, dy: Int): Slot? = values().firstOrNull { it.dx == dx && it.dy == dy }

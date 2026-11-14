@@ -16,7 +16,7 @@ data class Appearance(
     val animations: Boolean = true,
     val titles: Boolean = true,
     val darkMap: Boolean = true,
-    val mapStyle: String = "basic",
+    val mapStyle: String = "carto_voyager",
     val seconds: Boolean = false,
     val cardTint: Boolean = false,
     /** dark, light, auto (podle světlometů a času – zatím podle systému). */
@@ -63,6 +63,12 @@ object AppearanceStore {
             )
         } catch (e: Exception) {
             // Poškozené nastavení: zůstane výchozí vzhled.
+        }
+        // Verze 2.2: mapy Mapy.com a OpenStreetMap se jednorázově vymění za CARTO (Kuba si to přál).
+        val flag = "map_migrated_v22"
+        if (!Prefs.shared().getBoolean(flag, false)) {
+            Prefs.shared().edit().putBoolean(flag, true).apply()
+            if (_state.value.mapStyle in setOf("basic", "osm")) update { it.copy(mapStyle = "carto_voyager") }
         }
     }
 

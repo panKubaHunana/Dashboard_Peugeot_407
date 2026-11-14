@@ -100,7 +100,8 @@ object Rzc {
                     val code = d[i].toInt() and 0xFF
                     if (code != 0x00 && code != 0xF0 && code != 0xFF && code !in codes) codes.add(code)
                 }
-                CarRepo.update { it.copy(warnings = codes) }
+                val hex = d.joinToString(" ") { String.format("%02X", it.toInt() and 0xFF) }
+                CarRepo.update { it.copy(warnings = codes, warningsRaw = "3A · $hex", warningsAt = System.currentTimeMillis()) }
             }
         }
     }

@@ -343,6 +343,8 @@ fun AppearancePanel() {
                     val note = when (group) {
                         "Mapy.com" -> "klíč Mapy.com"
                         "Google" -> "klíč Google, placené nad limit"
+                        "CARTO" -> "zdarma, bez klíče, ostré dlaždice; s tmavou mapou se Voyager i Světlá přepnou na Tmavou"
+                        "Esri" -> "zdarma, bez klíče, satelit ve vysokém rozlišení"
                         else -> "zdarma, bez klíče"
                     }
                     Text("$group · $note", color = Palette.Muted, fontSize = 13.sp)
