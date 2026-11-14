@@ -43,6 +43,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cz.kuba.dash407.car.CarRepo
+import cz.kuba.dash407.ui.Reading
+import cz.kuba.dash407.home.rememberNow
 import cz.kuba.dash407.data.FuelLog
 import cz.kuba.dash407.data.GForce
 import cz.kuba.dash407.data.Gps
@@ -164,6 +167,69 @@ private fun TripStats(t: cz.kuba.dash407.data.TripStats, elapsedMs: Long, modifi
         StatRow("V pohybu", formatDuration(t.movingMs))
         StatRow("Průměr", "${t.averageKmh.roundToInt()} km/h")
         StatRow("Maximum", "${t.topKmh.roundToInt()} km/h")
+    }
+}
+
+/** Palubní počítač z auta a jízda z GPS v jednom widgetu. */
+@Composable
+fun TripComputerWidget(modifier: Modifier, preview: Boolean) {
+    val look = LocalLook.current
+    val car by CarRepo.state.collectAsState()
+    val t by Trip.state.collectAsState()
+    val refuels by FuelLog.entries.collectAsState()
+    val now by rememberNow()
+    val stats = FuelLog.stats(refuels)
+    val km = t.distanceM / 1000.0
+    val litres = stats.averageL100?.let { km * it / 100.0 }
+    val lastPricePerL = refuels.firstOrNull()?.let { if (it.litres > 0) it.price / it.litres else null }
+    val cost = if (litres != null && lastPricePerL != null) litres * lastPricePerL else null
+    val since = DateTimeFormatter.ofPattern("H:mm", Czech).format(Instant.ofEpochMilli(t.startedAt).atZone(ZoneId.systemDefault()))
+    // now jen vyvolá překreslení každou sekundu, aby běžel čas jízdy.
+    val elapsed = now.let { System.currentTimeMillis() - t.startedAt }
+    WidgetCard("Palubní počítač", modifier, action = {
+        Text(
+            "Vynulovat jízdu", color = look.accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = !preview) { Trip.reset() }.padding(horizontal = 4.dp)
+        )
+    }) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val wide = maxWidth > 300.dp
+            val carBlock: @Composable (Modifier) -> Unit = { m ->
+                Column(m, verticalArrangement = Arrangement.SpaceEvenly) {
+                    Reading(car.instantL100?.let { decimal(it) } ?: DASH, "okamžitá l/100 km")
+                    Reading(
+                        car.rangeKm?.toString() ?: DASH, "dojezd km",
+                        valueColor = if ((car.rangeKm ?: 999) < 80) Palette.Amber else Palette.Text
+                    )
+                    Reading(car.trip1?.avgL100?.let { decimal(it) } ?: DASH, "průměr l/100 km (Trip 1)")
+                    if (!car.linked) Text("Bez dat z auta", color = Palette.Muted, fontSize = 13.sp)
+                }
+            }
+            val tripBlock: @Composable (Modifier) -> Unit = { m ->
+                Column(m, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    StatRow("Ujeto", formatKm(t.distanceM) + " km")
+                    StatRow("Čas", formatDuration(elapsed))
+                    StatRow("V pohybu", formatDuration(t.movingMs))
+                    StatRow("Průměr", "${t.averageKmh.roundToInt()} km/h")
+                    StatRow("Maximum", "${t.topKmh.roundToInt()} km/h")
+                    StatRow("Od", since)
+                    StatRow("Odhad", (litres?.let { decimal(it) + " l" } ?: "– l") + ", " + (cost?.let { decimal(it, 0) + " Kč" } ?: "– Kč"))
+                }
+            }
+            if (wide) {
+                Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                    carBlock(Modifier.weight(1f).fillMaxHeight())
+                    Spacer(Modifier.width(14.dp))
+                    tripBlock(Modifier.weight(1.1f))
+                }
+            } else {
+                Column(Modifier.fillMaxSize()) {
+                    carBlock(Modifier.fillMaxWidth().weight(1f))
+                    Spacer(Modifier.height(8.dp))
+                    tripBlock(Modifier.fillMaxWidth())
+                }
+            }
+        }
     }
 }
 

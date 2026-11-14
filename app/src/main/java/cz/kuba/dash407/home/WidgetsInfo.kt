@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Grain
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.Pause
@@ -58,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import cz.kuba.dash407.data.AppsRepo
 import cz.kuba.dash407.data.NowPlaying
 import cz.kuba.dash407.data.Prefs
+import cz.kuba.dash407.data.DayForecast
 import cz.kuba.dash407.data.Weather
 import cz.kuba.dash407.ui.Czech
 import cz.kuba.dash407.ui.FitText
@@ -115,15 +118,31 @@ fun WeatherWidget(modifier: Modifier, preview: Boolean) {
         onDispose { Weather.release() }
     }
     val w by Weather.state.collectAsState()
+    val place = w.place?.let { if (w.approximate) "$it (bez GPS)" else it }
     WidgetCard("Počasí", modifier, action = {
+        if (place != null) {
+            Icon(Icons.Filled.LocationOn, null, tint = Palette.Muted, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(2.dp))
+            Text(
+                place, color = Palette.Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 170.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+        }
         Icon(
             Icons.Filled.Refresh, "Obnovit", tint = Palette.Muted,
             modifier = Modifier.size(24.dp).clip(CircleShape).clickable(enabled = !preview) { Weather.refresh() }
         )
     }) {
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+        Column(Modifier.fillMaxSize()) {
+            // Bez nadpisů widgetů se poloha ukáže tady.
+            if (!look.titles && place != null) {
+                Text(place, color = Palette.Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            ForecastRow(w.days)
+            Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                Icon(weatherIcon(w.code, w.isDay), null, tint = look.accent, modifier = Modifier.fillMaxHeight(0.7f).width(64.dp))
+                Icon(weatherIcon(w.code, w.isDay), null, tint = look.accent, modifier = Modifier.fillMaxHeight(0.6f).width(64.dp))
                 Spacer(Modifier.width(8.dp))
                 FitText(
                     w.tempC?.let { "${it.roundToInt()} °C" } ?: "– °C",
@@ -141,6 +160,36 @@ fun WeatherWidget(modifier: Modifier, preview: Boolean) {
             w.windKmh?.let { parts.add("Vítr ${it.roundToInt()} km/h") }
             w.humidity?.let { parts.add("Vlhkost $it %") }
             Text(parts.joinToString(" · "), color = Palette.Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** Denní předpověď: dnes a další dny, u každého ikona, nejvyšší a nejnižší teplota a pravděpodobnost srážek. */
+@Composable
+private fun ForecastRow(days: List<DayForecast>) {
+    if (days.isEmpty()) return
+    val look = LocalLook.current
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val count = if (maxWidth < 230.dp) 3 else 4
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            days.take(count).forEachIndexed { i, d ->
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        if (i == 0) "Dnes" else d.date.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, Czech).replaceFirstChar { it.uppercase() },
+                        color = Palette.Muted, fontSize = 13.sp, maxLines = 1
+                    )
+                    Icon(weatherIcon(d.code, true), null, tint = look.accent, modifier = Modifier.size(26.dp))
+                    Text(
+                        (d.maxC?.let { "${it.roundToInt()}°" } ?: "–") + " / " + (d.minC?.let { "${it.roundToInt()}°" } ?: "–"),
+                        color = Palette.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1
+                    )
+                    val rain = d.rainPct
+                    Text(
+                        if (rain != null && rain >= 20) "$rain %" else " ",
+                        color = Palette.Muted, fontSize = 12.sp, maxLines = 1
+                    )
+                }
+            }
         }
     }
 }

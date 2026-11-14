@@ -172,6 +172,7 @@ fun PickerPanel() {
             for (c in Category.values()) Pill(c.label, category == c) { category = c }
         }
         val list = WidgetType.values().filter {
+            it !in WidgetType.retired &&
             (category == null || it.category == category) &&
                 (query.isBlank() || it.title.contains(query, true) || it.description.contains(query, true))
         }

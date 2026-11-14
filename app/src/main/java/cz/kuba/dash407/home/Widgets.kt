@@ -32,6 +32,7 @@ enum class WidgetType(
     TRIP("Jízda", "Ujetá vzdálenost, čas, průměr, maximum, odhad paliva a ceny", Category.DRIVING, 2, 3, 2, 2),
     GFORCE("Přetížení", "Boční a podélné přetížení v g se špičkami", Category.DRIVING, 2, 3, 2, 2),
     PERF("Časomíra", "0–50, 0–100 km/h a 400 m s pevným startem", Category.DRIVING, 4, 3, 2, 2),
+    TRIP_COMPUTER("Palubní počítač a jízda", "Okamžitá spotřeba, dojezd, průměr z auta a k tomu ujetá vzdálenost, časy a odhad paliva z GPS", Category.VEHICLE, 2, 6, 2, 4),
     CAR_COMPUTER("Palubní počítač", "Okamžitá spotřeba, dojezd a průměr z auta", Category.VEHICLE, 2, 4, 2, 2),
     DOORS("Dveře", "Otevřené dveře, kapota a páté dveře", Category.VEHICLE, 2, 4, 2, 2),
     VOLTAGE("Napětí", "Napětí palubní sítě a spojení s autem", Category.VEHICLE, 2, 2, 1, 2),
@@ -44,6 +45,9 @@ enum class WidgetType(
 
     companion object {
         fun of(name: String): WidgetType? = values().firstOrNull { it.name == name }
+
+        /** Nahrazené widgety: na plochách zůstanou, ale nenabízejí se k přidání. */
+        val retired: Set<WidgetType> get() = setOf(CAR_COMPUTER, TRIP)
     }
 }
 
@@ -62,6 +66,7 @@ fun WidgetContent(type: WidgetType, cell: Cell?, modifier: Modifier = Modifier, 
         WidgetType.GFORCE -> GForceWidget(modifier, preview)
         WidgetType.PERF -> PerfWidget(modifier, preview)
         WidgetType.CAR_COMPUTER -> CarComputerWidget(modifier)
+        WidgetType.TRIP_COMPUTER -> TripComputerWidget(modifier, preview)
         WidgetType.DOORS -> DoorsWidget(modifier)
         WidgetType.VOLTAGE -> VoltageWidget(modifier)
         WidgetType.FUEL -> FuelWidget(modifier, preview)
