@@ -124,6 +124,20 @@ private fun AppRoot() {
             else -> UiBus.home()
         }
     }
+    // Zkušebně skryté lišty rádia. Když je jednotka kreslí jako systémové lišty Androidu, zmizí;
+    // tahem od okraje obrazovky se na chvíli ukážou.
+    val hideTop by Prefs.hideTopBar.collectAsState()
+    val hideBottom by Prefs.hideBottomBar.collectAsState()
+    val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+    androidx.compose.runtime.LaunchedEffect(hideTop, hideBottom) {
+        val w = activity?.window ?: return@LaunchedEffect
+        val c = androidx.core.view.WindowCompat.getInsetsController(w, w.decorView)
+        c.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        val top = androidx.core.view.WindowInsetsCompat.Type.statusBars()
+        val bottom = androidx.core.view.WindowInsetsCompat.Type.navigationBars()
+        if (hideTop) c.hide(top) else c.show(top)
+        if (hideBottom) c.hide(bottom) else c.show(bottom)
+    }
     Box(Modifier.fillMaxSize()) {
         HomeRoot()
         PanelHost()

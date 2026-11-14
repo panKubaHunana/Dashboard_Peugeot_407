@@ -77,6 +77,8 @@ fun SettingsScreen() {
     val home by Prefs.homeAddress.collectAsState()
     val work by Prefs.workAddress.collectAsState()
     val split by Prefs.splitScreen.collectAsState()
+    val hideTop by Prefs.hideTopBar.collectAsState()
+    val hideBottom by Prefs.hideBottomBar.collectAsState()
     val drive by Prefs.driveService.collectAsState()
     val navTarget by Prefs.navTarget.collectAsState()
     val googleKey by Prefs.googleKey.collectAsState()
@@ -154,6 +156,11 @@ fun SettingsScreen() {
             if (!Mapy.isInstalled(context)) {
                 Text("Aplikace Mapy.com v rádiu není. Nainstaluj ji z Obchodu Play.", color = Palette.Amber, fontSize = 15.sp)
             }
+        }
+
+        Card("Lišty rádia (zkušebně)", "Skryje lišty jednotky, dokud je Dash 407 vpředu, a uvolní tak místo pro widgety. Funguje jen tehdy, když je rádio kreslí jako systémové lišty Androidu. Tahem prstem od horního (dolního) okraje se lišta na chvíli ukáže.") {
+            SwitchLine("Skrýt horní lištu (napětí, hlasitost, ikony aplikací)", hideTop) { Prefs.setHideTopBar(it) }
+            SwitchLine("Skrýt spodní lištu (klimatizace, hlasitost, Domů)", hideBottom) { Prefs.setHideBottomBar(it) }
         }
 
         Card("Navigace", "Navigace krok za krokem přímo v Dash 407: mapa Mapy.com, trasa a české pokyny z otevřeného routeru Valhalla (OpenStreetMap), hlas z převodu textu na řeč v rádiu. " +

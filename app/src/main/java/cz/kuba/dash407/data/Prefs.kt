@@ -13,6 +13,8 @@ object Prefs {
     private const val KEY_HOME = "addr_home"
     private const val KEY_WORK = "addr_work"
     private const val KEY_SPLIT = "split_screen"
+    private const val KEY_HIDE_TOP = "hide_top_bar"
+    private const val KEY_HIDE_BOTTOM = "hide_bottom_bar"
     private const val KEY_DRIVE = "drive_service"
     private const val KEY_NAV_IN_APP = "nav_in_app"
     private const val KEY_NAV_VOICE = "nav_voice"
@@ -44,6 +46,14 @@ object Prefs {
 
     private val _split = MutableStateFlow(false)
     val splitScreen: StateFlow<Boolean> = _split
+
+    private val _hideTop = MutableStateFlow(false)
+    /** Zkušebně: skrýt horní lištu rádia (stavový řádek systému), dokud je Dash 407 vpředu. */
+    val hideTopBar: StateFlow<Boolean> = _hideTop
+
+    private val _hideBottom = MutableStateFlow(false)
+    /** Zkušebně: skrýt spodní lištu rádia (navigační lišta systému s klimatizací). */
+    val hideBottomBar: StateFlow<Boolean> = _hideBottom
 
     private val _drive = MutableStateFlow(true)
     val driveService: StateFlow<Boolean> = _drive
@@ -99,6 +109,8 @@ object Prefs {
         _home.value = store.getString(KEY_HOME, "") ?: ""
         _work.value = store.getString(KEY_WORK, "") ?: ""
         _split.value = store.getBoolean(KEY_SPLIT, false)
+        _hideTop.value = store.getBoolean(KEY_HIDE_TOP, false)
+        _hideBottom.value = store.getBoolean(KEY_HIDE_BOTTOM, false)
         _drive.value = store.getBoolean(KEY_DRIVE, true)
         _navInApp.value = store.getBoolean(KEY_NAV_IN_APP, true)
         _navTarget.value = store.getString(KEY_NAV_TARGET, null) ?: if (_navInApp.value) "dash" else "mapy"
@@ -148,6 +160,16 @@ object Prefs {
     fun setSplitScreen(value: Boolean) {
         _split.value = value
         store.edit().putBoolean(KEY_SPLIT, value).apply()
+    }
+
+    fun setHideTopBar(value: Boolean) {
+        _hideTop.value = value
+        store.edit().putBoolean(KEY_HIDE_TOP, value).apply()
+    }
+
+    fun setHideBottomBar(value: Boolean) {
+        _hideBottom.value = value
+        store.edit().putBoolean(KEY_HIDE_BOTTOM, value).apply()
     }
 
     fun setDriveService(value: Boolean) {
