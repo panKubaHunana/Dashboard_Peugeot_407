@@ -7,6 +7,13 @@ import android.provider.ContactsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,22 +65,19 @@ import cz.kuba.dash407.ui.WidgetCard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Rychlá volba: pět vlastních kontaktů, nebo oblíbené kontakty z rádia. */
+/**
+ * Rychlá volba ve stylu doku: pět vlastních kontaktů a šesté tlačítko otevře seznam kontaktů.
+ * Klepnutí zavolá, podržení kontakt upraví, prázdné tlačítko kontakt přidá.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun QuickDialWidget(modifier: Modifier, preview: Boolean) {
     val context = LocalContext.current
     val look = LocalLook.current
-    val mode by QuickDial.mode.collectAsState()
     val slots by QuickDial.slots.collectAsState()
-    var canRead by remember { mutableStateOf(QuickDial.canRead(context)) }
-    var starred by remember { mutableStateOf<List<DialContact>>(emptyList()) }
     var pending by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<Int?>(null) }
 
-    LaunchedEffect(mode, canRead) {
-        if (mode == "starred" && canRead) starred = withContext(Dispatchers.IO) { QuickDial.starred(context) }
-    }
-    val askContacts = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { canRead = it }
     val askCall = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         pending?.let { QuickDial.call(context, it, granted) }
         pending = null
@@ -87,46 +91,56 @@ fun QuickDialWidget(modifier: Modifier, preview: Boolean) {
         }
     }
 
-    WidgetCard("Rychlá volba", modifier, action = {
-        Text(
-            if (mode == "mine") "Moje kontakty" else "Oblíbené",
-            color = look.accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.clip(RoundedCornerShape(8.dp))
-                .clickable(enabled = !preview) { QuickDial.setMode(if (mode == "mine") "starred" else "mine") }
-                .padding(horizontal = 4.dp)
-        )
-    }) {
-        if (mode == "mine") {
+    WidgetCard(null, modifier, padding = 8.dp) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            // Široký widget (4 × 2): šest tlačítek v řadě. Užší: dvě řady po třech.
+            val cols = if (maxWidth > maxHeight * 1.8f) 6 else 3
+            val rows = 6 / cols
+            val label = 18.dp
+            val icon = minOf(maxWidth / cols * 0.78f, (maxHeight / rows - label - 6.dp) * 0.9f, 84.dp)
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
-                for (i in 0 until QuickDial.SLOTS) {
-                    val c = slots.getOrNull(i)
-                    DialRow(
-                        name = c?.name ?: "Přidat kontakt",
-                        number = c?.number,
-                        empty = c == null,
-                        modifier = Modifier.weight(1f, fill = false).heightIn(min = 40.dp),
-                        onCall = { if (c != null) dial(c.number) else if (!preview) editing = i },
-                        onEdit = if (c != null) ({ if (!preview) editing = i }) else null
-                    )
-                }
-            }
-        } else if (!canRead) {
-            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-                Text("Pro oblíbené kontakty povol přístup ke kontaktům.", color = Palette.Muted, fontSize = 15.sp)
-                Spacer(Modifier.size(8.dp))
-                Button(onClick = { if (!preview) askContacts.launch(Manifest.permission.READ_CONTACTS) }, shape = RoundedCornerShape(16.dp)) {
-                    Text("Povolit kontakty", fontSize = 16.sp)
-                }
-            }
-        } else if (starred.isEmpty()) {
-            Text(
-                "V kontaktech v rádiu nejsou žádné oblíbené (hvězdička). Přepni na Moje kontakty a zadej si je ručně.",
-                color = Palette.Muted, fontSize = 15.sp
-            )
-        } else {
-            LazyColumn(Modifier.fillMaxSize()) {
-                items(starred) { c ->
-                    DialRow(c.name, c.number, empty = false, modifier = Modifier.heightIn(min = 48.dp), onCall = { dial(c.number) }, onEdit = null)
+                for (r in 0 until rows) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                        for (col in 0 until cols) {
+                            val i = r * cols + col
+                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                if (i < QuickDial.SLOTS) {
+                                    val c = slots.getOrNull(i)
+                                    Text(
+                                        c?.name?.substringBefore(' ') ?: "Přidat",
+                                        color = if (c != null) Palette.Text else Palette.Muted, fontSize = 13.sp,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.height(label).padding(horizontal = 2.dp)
+                                    )
+                                    Box(
+                                        Modifier.size(icon).clip(CircleShape)
+                                            .background(if (c != null) Color.White.copy(alpha = 0.92f) else Palette.Text.copy(alpha = 0.08f))
+                                            .combinedClickable(
+                                                enabled = !preview,
+                                                onClick = { if (c != null) dial(c.number) else editing = i },
+                                                onLongClick = { editing = i }
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (c != null) {
+                                            Text(initials(c.name), color = look.accent, fontSize = (icon.value * 0.36f).sp, fontWeight = FontWeight.Bold)
+                                        } else {
+                                            Icon(Icons.Filled.Add, "Přidat kontakt", tint = Palette.Muted, modifier = Modifier.size(icon * 0.45f))
+                                        }
+                                    }
+                                } else {
+                                    Text("Kontakty", color = Palette.Text, fontSize = 13.sp, maxLines = 1, modifier = Modifier.height(label))
+                                    Box(
+                                        Modifier.size(icon).clip(CircleShape).background(Color.White.copy(alpha = 0.92f))
+                                            .clickable(enabled = !preview) { QuickDial.openContacts(context) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Filled.Contacts, "Seznam kontaktů", tint = look.accent, modifier = Modifier.size(icon * 0.5f))
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -134,47 +148,9 @@ fun QuickDialWidget(modifier: Modifier, preview: Boolean) {
     editing?.let { i -> SlotDialog(i, slots.getOrNull(i)) { editing = null } }
 }
 
-@Composable
-private fun DialRow(
-    name: String,
-    number: String?,
-    empty: Boolean,
-    modifier: Modifier,
-    onCall: () -> Unit,
-    onEdit: (() -> Unit)?
-) {
-    val look = LocalLook.current
-    Row(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { onCall() }.padding(vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            Modifier.size(36.dp).clip(CircleShape).background(look.accent.copy(alpha = if (empty) 0.12f else 0.28f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(if (empty) "+" else name.take(1).uppercase(), color = Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(name, color = if (empty) Palette.Muted else Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (number != null) Text(number, color = Palette.Muted, fontSize = 13.sp, maxLines = 1)
-        }
-        if (onEdit != null) {
-            Icon(
-                Icons.Filled.Edit, "Upravit", tint = Palette.Muted,
-                modifier = Modifier.size(36.dp).clip(CircleShape).clickable { onEdit() }.padding(8.dp)
-            )
-        }
-        if (!empty) {
-            Box(
-                Modifier.size(36.dp).clip(CircleShape).background(Palette.Good.copy(alpha = 0.9f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Filled.Call, "Volat", tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(20.dp))
-            }
-        }
-    }
-}
+/** Iniciály do kolečka: „Honza Novák“ → „HN“, „Máma“ → „M“. */
+private fun initials(name: String): String =
+    name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.take(2).joinToString("") { it.take(1).uppercase() }.ifEmpty { "?" }
 
 /** Úprava jednoho ze slotů: ručně, nebo výběrem z kontaktů v rádiu. */
 @Composable

@@ -113,6 +113,23 @@ object QuickDial {
         null
     }
 
+    /** Otevře aplikaci s kontakty v rádiu. */
+    fun openContacts(context: Context) {
+        val tries = listOf(
+            Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_CONTACTS),
+            Intent(Intent.ACTION_VIEW, ContactsContract.Contacts.CONTENT_URI)
+        )
+        for (i in tries) {
+            try {
+                context.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                return
+            } catch (e: Exception) {
+                // Zkusí další způsob.
+            }
+        }
+        Toast.makeText(context, "Rádio nemá aplikaci s kontakty", Toast.LENGTH_LONG).show()
+    }
+
     fun call(context: Context, number: String, direct: Boolean) {
         val uri = Uri.parse("tel:" + Uri.encode(number))
         val action = if (direct && canCall(context)) Intent.ACTION_CALL else Intent.ACTION_DIAL
