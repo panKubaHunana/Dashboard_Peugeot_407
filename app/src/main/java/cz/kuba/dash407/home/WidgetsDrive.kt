@@ -89,7 +89,7 @@ fun SpeedWidget(modifier: Modifier) {
     WidgetCard(null, modifier, padding = 10.dp) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val showRows = maxHeight > 150.dp && maxWidth > 150.dp
-            val labelSp = minOf(maxWidth.value / 18f, maxHeight.value / 13f, 18f).coerceAtLeast(12f)
+            val labelSp = minOf(maxWidth.value / 17f, maxHeight.value / 11.5f, 18f).coerceAtLeast(12f)
             val valueSp = labelSp * 1.4f
             val navOn = nav.active && nav.route != null
             val arrival = if (navOn) now.plusSeconds(nav.remainingS.toLong()).format(DateTimeFormatter.ofPattern("H:mm", Czech)) else DASH
