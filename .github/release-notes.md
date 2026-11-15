@@ -4,6 +4,8 @@
 - **Přehrávač**: tlačítka předchozí – přehrát – další se zmenší podle šířky widgetu, takže se vejdou vedle sebe i v úzkém přehrávači.
 - **Přehrávač**: tmavší přechod přes obal alba a stín pod názvem skladby – text je čitelný i přes světlý obrázek.
 - **Rychlá volba**: ikona Kontaktů má pevnou modrou barvu (nemění se s barvou zvýraznění).
+- **Navigace – natočení mapy**: mapa se už neotáčí nesmyslně při stání. Směr z GPS se bere jen při jízdě od 8 km/h, jinak platí poslední dobrý směr; na začátku navigace (auto ještě nejelo) se mapa natočí podle směru trasy. Otáčení je plynulé a nejkratší cestou.
+- **Navigace – přepínač na mapě**: nové tlačítko kompasu pod hlasem přepíná **sever nahoře / mapa po směru jízdy**.
 
 Stáhni `Dash407-2.13.apk` (nabídne se samo).
 
