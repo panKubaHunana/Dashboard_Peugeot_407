@@ -197,7 +197,7 @@ fun PageGrid(page: Page, editing: Boolean, undo: MutableList<Pair<Slot, List<Cel
         val areaW = maxWidth
         val areaH = maxHeight
         androidx.compose.runtime.LaunchedEffect(areaW, areaH, imeVisible) {
-            if (imeVisible || areaW.value <= 0f || areaH < screenH * 0.5f) return@LaunchedEffect
+            if (imeVisible || areaW.value <= 0f || areaH.value < screenH.value * 0.5f) return@LaunchedEffect
             kotlinx.coroutines.delay(1500)
             val rows = Math.round(LayoutStore.COLS * areaH.value / areaW.value).coerceIn(12, 48)
             if (kotlin.math.abs(rows - LayoutStore.ROWS) >= 1) LayoutStore.setRows(rows)
