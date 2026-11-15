@@ -42,6 +42,33 @@ jobs:
       - name: Kompilace
         run: gradle :app:assembleDebug --stacktrace
 
+      # Snímky widgetů ze skutečného kódu (Paparazzi). Test i plugin se přidají jen tady,
+      # build.gradle.kts v repozitáři zůstává beze změny, takže do APK se nic nedostane.
+      - name: Nástroje pro snímky (z main)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: _main
+          sparse-checkout: .github/snapshots
+
+      - name: Snímky widgetů
+        continue-on-error: true
+        run: |
+          mkdir -p app/src/test/java/cz/kuba/dash407
+          cp _main/.github/snapshots/*.kt app/src/test/java/cz/kuba/dash407/
+          rm -rf _main
+          sed -i 's/^    id("org.jetbrains.kotlin.plugin.compose")$/&\n    id("app.cash.paparazzi") version "1.3.5"/' app/build.gradle.kts
+          gradle :app:recordPaparazziDebug --stacktrace
+
+      - name: Snímky ke stažení
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dash407-snimky
+          path: app/src/test/snapshots/images/
+          retention-days: 14
+          if-no-files-found: warn
+
       - name: APK ke stažení (jen pro zkoušku)
         uses: actions/upload-artifact@v4
         with:
