@@ -10,7 +10,11 @@ import org.json.JSONObject
 import java.net.URLEncoder
 
 /** Nejvyšší povolená rychlost na silnici, kde auto jede (OpenStreetMap, služba Overpass). */
-data class LimitState(val kmh: Int? = null, val road: String? = null, val known: Boolean = false, val at: Long = 0L)
+data class LimitState(
+    val kmh: Int? = null, val road: String? = null, val known: Boolean = false, val at: Long = 0L,
+    /** Typ silnice pro barvu rychlosti; když ho OSM neurčí, drží se poslední známý. */
+    val zone: RoadZone? = null,
+)
 
 object SpeedLimit {
     private val _state = MutableStateFlow(LimitState())
@@ -41,16 +45,18 @@ object SpeedLimit {
                 val text = Net.postForm("https://overpass-api.de/api/interpreter", "data=" + URLEncoder.encode(q, "UTF-8"))
                 val elements = JSONObject(text).optJSONArray("elements")
                 var best: LimitState? = null
+                val prevZone = _state.value.zone
                 if (elements != null) {
                     for (i in 0 until elements.length()) {
                         val tags = elements.getJSONObject(i).optJSONObject("tags") ?: continue
                         val road = tags.optString("ref").ifBlank { tags.optString("name") }.ifBlank { null }
                         val kmh = parse(tags.optString("maxspeed"))
-                        if (kmh != null) { best = LimitState(kmh, road, true, now); break }
-                        if (best == null) best = LimitState(null, road, false, now)
+                        val zone = RoadZone.of(kmh, tags.optString("highway"))
+                        if (kmh != null) { best = LimitState(kmh, road, true, now, zone); break }
+                        if (best == null) best = LimitState(null, road, false, now, zone ?: prevZone)
                     }
                 }
-                _state.value = best ?: LimitState(at = now)
+                _state.value = best ?: LimitState(at = now, zone = prevZone)
             } catch (e: Exception) {
                 // Bez signálu necháme poslední známou hodnotu.
             } finally {
