@@ -1,3 +1,10 @@
+## Dash 407 – verze 2.12
+
+### Oprava
+- **Mřížka se v režimu úprav nepřepočítává.** Lišta úprav plochu zmenší; dřív se pak počet řádků změnil z 21 na 18 a po „Hotovo“ zpět na 21, takže se widgety zaokrouhlením mohly posunout o řádek. Teď zůstává mřížka stejná a rozložení se nemění.
+
+Stáhni `Dash407-2.12.apk` (nabídne se samo).
+
 ## Dash 407 – verze 2.11
 
 ### Opravy po prvním testu v autě

@@ -196,8 +196,10 @@ fun PageGrid(page: Page, editing: Boolean, undo: MutableList<Pair<Slot, List<Cel
         val imeVisible = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
         val areaW = maxWidth
         val areaH = maxHeight
-        androidx.compose.runtime.LaunchedEffect(areaW, areaH, imeVisible) {
-            if (imeVisible || areaW.value <= 0f || areaH.value < screenH.value * 0.5f) return@LaunchedEffect
+        // V režimu úprav je plocha nižší o lištu úprav – mřížka se tehdy nepřepočítává,
+        // jinak by se řádky měnily 21 → 18 → 21 a zaokrouhlením by se widgety posouvaly (2.12).
+        androidx.compose.runtime.LaunchedEffect(areaW, areaH, imeVisible, editing) {
+            if (editing || imeVisible || areaW.value <= 0f || areaH.value < screenH.value * 0.5f) return@LaunchedEffect
             kotlinx.coroutines.delay(1500)
             val rows = Math.round(LayoutStore.COLS * areaH.value / areaW.value).coerceIn(12, 48)
             if (kotlin.math.abs(rows - LayoutStore.ROWS) >= 1) LayoutStore.setRows(rows)
