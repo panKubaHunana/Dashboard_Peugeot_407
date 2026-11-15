@@ -99,7 +99,7 @@ private fun mercY(lat: Double): Double {
 }
 
 /** Matice pro „noční“ mapu: převrácení jasu a otočení odstínu o 180°, aby voda zůstala modrá. */
-private val nightFilter: ColorFilter by lazy {
+internal val nightFilter: ColorFilter by lazy {
     val invert = floatArrayOf(
         -1f, 0f, 0f, 0f, 255f,
         0f, -1f, 0f, 0f, 255f,

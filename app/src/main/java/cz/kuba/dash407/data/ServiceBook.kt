@@ -128,7 +128,10 @@ object ServiceBook {
 
     fun setCar(change: (CarInfo) -> CarInfo) { _car.value = change(_car.value); save() }
 
-    fun setOdometer(km: Int?) = setCar { it.copy(odoKm = km, odoAt = System.currentTimeMillis()) }
+    fun setOdometer(km: Int?) {
+        setCar { it.copy(odoKm = km, odoAt = System.currentTimeMillis()) }
+        if (km != null) Odometer.calibrate(km, "servisní knížka")
+    }
 
     fun setInterval(kind: ServiceKind, interval: Interval) {
         _intervals.value = _intervals.value + (kind to interval)
@@ -153,7 +156,9 @@ object ServiceBook {
         val c = _car.value.odoKm
         val f = fuel.maxOfOrNull { it.odometerKm }
         val s = _entries.value.mapNotNull { it.km }.maxOrNull()
-        return listOfNotNull(c, f, s).maxOrNull()
+        // Odhad z Knihy jízd (poslední stav + km z GPS) bývá nejčerstvější.
+        val o = if (_car.value.odoKm != null || f != null) Odometer.km() else null
+        return listOfNotNull(c, f, s, o).maxOrNull()
     }
 
     fun dateOf(ms: Long): LocalDate = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()

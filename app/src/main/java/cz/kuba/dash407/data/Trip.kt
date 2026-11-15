@@ -38,7 +38,11 @@ data class TripStats(
     /** Čas v pohybu za celý den. */
     val dayMovingMs: Long = 0L,
     /** Ujeto za celý den. */
-    val dayDistanceM: Double = 0.0
+    val dayDistanceM: Double = 0.0,
+    /** Celkem ujeto podle GPS od instalace (nikdy se nenuluje; podklad pro odhad tachometru). */
+    val totalM: Double = 0.0,
+    /** Odhad tachometru na začátku jízdy. */
+    val odoStart: Int? = null
 ) {
     /** Průměrná rychlost jízdy za dobu, kdy se auto pohybovalo. */
     val averageKmh: Double
@@ -56,12 +60,15 @@ object Trip {
     val state: StateFlow<TripStats> = _state
 
     private var last: Fix? = null
+    private var trackLat: Double? = null
+    private var trackLon: Double? = null
     private var lastSave = 0L
     private var loaded = false
 
     @Synchronized
     fun init(context: Context) {
         DriveLog.init(context)
+        DriveTracks.init(context)
         if (loaded) return
         loaded = true
         val raw = try { Prefs.shared().getString(KEY, null) } catch (e: Exception) { null }
@@ -81,7 +88,9 @@ object Trip {
                     endLat = d("endLat"), endLon = d("endLon"),
                     day = o.optLong("day", LocalDate.now().toEpochDay()),
                     dayMovingMs = o.optLong("dayMovingMs", 0L),
-                    dayDistanceM = o.optDouble("dayDistanceM", 0.0)
+                    dayDistanceM = o.optDouble("dayDistanceM", 0.0),
+                    totalM = o.optDouble("totalM", 0.0),
+                    odoStart = if (o.has("odoStart")) o.getInt("odoStart") else null
                 )
             } catch (e: Exception) {
                 // Poškozený záznam: začneme znovu.
@@ -111,9 +120,21 @@ object Trip {
             s = s.copy(
                 startedAt = prev.time, distanceM = 0.0, movingMs = 0L, topKmh = 0f,
                 drives = s.drives + 1, active = true,
-                startLat = prev.lat, startLon = prev.lon
+                startLat = prev.lat, startLon = prev.lon,
+                odoStart = Odometer.km()
             )
+            DriveTracks.start(prev.lat, prev.lon)
+            trackLat = prev.lat
+            trackLon = prev.lon
             save()
+        }
+        // Skutečná trasa: bod zhruba po 40 m.
+        val tl = trackLat
+        val tn = trackLon
+        if (tl == null || tn == null || Gps.distance(tl, tn, f.lat, f.lon) >= DriveTracks.STEP_M) {
+            DriveTracks.append(f.lat, f.lon)
+            trackLat = f.lat
+            trackLon = f.lon
         }
         _state.value = s.copy(
             distanceM = s.distanceM + d,
@@ -122,7 +143,8 @@ object Trip {
             lastMovingAt = f.time,
             endLat = f.lat, endLon = f.lon,
             dayMovingMs = s.dayMovingMs + dt,
-            dayDistanceM = s.dayDistanceM + d
+            dayDistanceM = s.dayDistanceM + d,
+            totalM = s.totalM + d
         )
         if (f.time - lastSave > 30_000) save()
     }
@@ -142,11 +164,12 @@ object Trip {
             val o = JSONObject()
                 .put("startedAt", s.startedAt).put("distanceM", s.distanceM).put("movingMs", s.movingMs)
                 .put("topKmh", s.topKmh.toDouble()).put("drives", s.drives).put("lastMovingAt", s.lastMovingAt)
-                .put("active", s.active).put("day", s.day).put("dayMovingMs", s.dayMovingMs).put("dayDistanceM", s.dayDistanceM)
+                .put("active", s.active).put("day", s.day).put("dayMovingMs", s.dayMovingMs).put("dayDistanceM", s.dayDistanceM).put("totalM", s.totalM)
             s.startLat?.let { o.put("startLat", it) }
             s.startLon?.let { o.put("startLon", it) }
             s.endLat?.let { o.put("endLat", it) }
             s.endLon?.let { o.put("endLon", it) }
+            s.odoStart?.let { o.put("odoStart", it) }
             Prefs.shared().edit().putString(KEY, o.toString()).apply()
         } catch (e: Exception) {
             // Úložiště ještě není připravené.
@@ -171,16 +194,23 @@ object Trip {
     private fun finish(s: TripStats, end: Long) {
         val keep = s.distanceM >= MIN_DRIVE_M && s.startLat != null && s.endLat != null
         if (keep) {
+            DriveTracks.finish(s.startedAt)
             DriveLog.add(
                 DriveRecord(
                     id = s.startedAt, start = s.startedAt, end = end,
                     startLat = s.startLat!!, startLon = s.startLon ?: 0.0,
                     endLat = s.endLat!!, endLon = s.endLon ?: 0.0,
                     distanceM = s.distanceM, movingMs = s.movingMs,
-                    avgKmh = s.averageKmh, maxKmh = s.topKmh.toDouble()
+                    avgKmh = s.averageKmh, maxKmh = s.topKmh.toDouble(),
+                    odoStart = s.odoStart,
+                    odoEnd = s.odoStart?.let { (it + s.distanceM / 1000.0).toInt() } ?: Odometer.km()
                 )
             )
+        } else {
+            DriveTracks.discard()
         }
+        trackLat = null
+        trackLon = null
         _state.value = if (keep) s.copy(active = false) else s.copy(
             // Krátký přejezd se nepočítá: denní počet jízd se vrátí.
             active = false, drives = (s.drives - 1).coerceAtLeast(0)

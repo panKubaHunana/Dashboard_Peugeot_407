@@ -14,7 +14,10 @@ data class Refuel(
     val odometerKm: Int,
     val litres: Double,
     val price: Double,
-    val full: Boolean
+    val full: Boolean,
+    /** Kde se tankovalo (GPS v okamžiku zápisu), pokud byla poloha známá. */
+    val lat: Double? = null,
+    val lon: Double? = null
 )
 
 /** Souhrn knihy tankování. */
@@ -54,7 +57,9 @@ object FuelLog {
                         odometerKm = o.getInt("km"),
                         litres = o.getDouble("litres"),
                         price = o.getDouble("price"),
-                        full = o.optBoolean("full", true)
+                        full = o.optBoolean("full", true),
+                        lat = if (o.has("lat")) o.getDouble("lat") else null,
+                        lon = if (o.has("lon")) o.getDouble("lon") else null
                     )
                 )
             }
@@ -75,6 +80,7 @@ object FuelLog {
                     .put("litres", r.litres)
                     .put("price", r.price)
                     .put("full", r.full)
+                    .also { o -> r.lat?.let { o.put("lat", it) }; r.lon?.let { o.put("lon", it) } }
             )
         }
         try {
@@ -86,10 +92,14 @@ object FuelLog {
 
     fun add(odometerKm: Int, litres: Double, price: Double, full: Boolean) {
         val now = System.currentTimeMillis()
-        val next = (_entries.value + Refuel(now, now, odometerKm, litres, price, full))
+        val fix = Gps.fix.value?.takeIf { now - it.time < 10 * 60_000 }
+        val newest = odometerKm >= (_entries.value.maxOfOrNull { it.odometerKm } ?: 0)
+        val next = (_entries.value + Refuel(now, now, odometerKm, litres, price, full, fix?.lat, fix?.lon))
             .sortedByDescending { it.odometerKm }
         _entries.value = next
         write(next)
+        // Tankování se stavem tachometru opraví odhad tachometru v Knize jízd.
+        if (newest) Odometer.calibrate(odometerKm, "tankování")
     }
 
     fun remove(id: Long) {

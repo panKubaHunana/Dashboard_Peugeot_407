@@ -1,3 +1,16 @@
+## Dash 407 – verze 2.9
+
+### Novinky ve 2.9 – Kniha jízd naplno
+- **Skutečná trasa každé jízdy**: během jízdy se ukládá bod zhruba každých 40 m. V detailu jízdy tlačítko **Trasa na mapě** (start zeleně, cíl červeně, posun prstem, přiblížení dvěma prsty).
+- **Teplotní mapa** (Kniha jízd › Teplotní mapa): kudy jezdíš nejčastěji – režimy Trasy, Starty a cíle, Tankování; za zvolené období.
+- **Stav tachometru**: na začátku a na konci každé jízdy. Počítá se z posledního známého stavu (tankování, servisní knížka nebo ručně „Zadat stav“) + km z GPS. Každé tankování odhad opraví.
+- **Propojení s Tankováním**: tankování jsou v seznamu jízd, u tankování se ukládá poloha pumpy, kolonka tachometru se předvyplní odhadem. U každé jízdy odhad paliva a nákladů (průměr z knihy tankování × cena za litr z posledního tankování).
+- **Statistika**: celkový čas jízdy, čas v pohybu, ujeté km a počet jízd po dnech, týdnech, měsících a rocích; nahoře přehled Dnes / Tento týden / Tento měsíc / Letos.
+- **Excel**: tři listy – Kniha jízd (nově tachometr, čas jízdy, palivo a náklady), Tankování a Statistika.
+- Filtr období nově i **Rok**; Týden začíná pondělím.
+
+Stáhni `Dash407-2.9.apk` (od 2.7 se nabídne samo).
+
 ## Dash 407 – verze 2.8
 
 ### Novinky ve 2.8 – Kniha jízd
@@ -8,7 +21,6 @@
 - **Detail jízdy**: souřadnice, poznámka (účel jízdy), smazání.
 - **Export do Excelu** (.xlsx): uloží se do Stažené soubory/Dash407 a rovnou se nabídne odeslání. Obsahuje i souřadnice a řádek Celkem.
 
-Stáhni `Dash407-2.8.apk` a nainstaluj ho přes starou verzi (od 2.7 se nabídne samo).
 
 ## Dash 407 – verze 2.7
 

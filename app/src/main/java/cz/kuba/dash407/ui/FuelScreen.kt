@@ -157,7 +157,8 @@ private fun AddRefuelDialog(
     onDismiss: () -> Unit,
     onSave: (km: Int, litres: Double, price: Double, full: Boolean) -> Unit
 ) {
-    var km by remember { mutableStateOf("") }
+    // Předvyplněno odhadem tachometru z Knihy jízd (stav při posledním zadání + km z GPS).
+    var km by remember { mutableStateOf(cz.kuba.dash407.data.Odometer.km()?.takeIf { lastKm == null || it > lastKm }?.toString() ?: "") }
     var litres by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
     var full by remember { mutableStateOf(true) }
