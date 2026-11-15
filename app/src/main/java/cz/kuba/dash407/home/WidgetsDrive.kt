@@ -28,6 +28,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,31 +84,70 @@ fun SpeedWidget(modifier: Modifier) {
     }
 }
 
+/**
+ * Rychloměr: oblouk s rychlostí z GPS a pod ním údaje palubního počítače z auta
+ * (okamžitá a průměrná spotřeba, ujeto a dojezd). U nízkého widgetu zůstane jen oblouk.
+ */
 @Composable
 fun SpeedGaugeWidget(modifier: Modifier) {
     val look = LocalLook.current
     val speed by Gps.speedKmh.collectAsState()
-    WidgetCard("Rychloměr", modifier) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Canvas(Modifier.fillMaxSize().padding(4.dp)) {
-                val stroke = (minOf(size.width, size.height) * 0.07f).coerceAtLeast(6f)
-                val side = minOf(size.width, size.height) - stroke
-                val topLeft = Offset((size.width - side) / 2f, (size.height - side) / 2f)
-                val arc = Size(side, side)
-                drawArc(Palette.Text.copy(alpha = 0.1f), 135f, 270f, false, topLeft, arc, style = Stroke(stroke, cap = StrokeCap.Round))
-                val part = ((speed ?: 0).coerceIn(0, 200)) / 200f
-                if (part > 0f) {
-                    drawArc(
-                        if ((speed ?: 0) > 130) Palette.Amber else look.accent,
-                        135f, 270f * part, false, topLeft, arc, style = Stroke(stroke, cap = StrokeCap.Round)
-                    )
+    val car by CarRepo.state.collectAsState()
+    WidgetCard(null, modifier, padding = 12.dp, onClick = { UiBus.open(Panel.CAR) }) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val showCar = maxHeight > 230.dp && maxWidth > 160.dp
+            val valueSp = minOf(maxWidth.value / 9f, 30f).coerceAtLeast(16f)
+            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                BoxWithConstraints(Modifier.fillMaxWidth().weight(if (showCar) 1.35f else 1f), contentAlignment = Alignment.Center) {
+                    val side = minOf(maxWidth, maxHeight)
+                    Canvas(Modifier.size(side)) {
+                        val stroke = (size.minDimension * 0.075f).coerceAtLeast(6f)
+                        val d = size.minDimension - stroke
+                        val topLeft = Offset((size.width - d) / 2f, (size.height - d) / 2f)
+                        val arc = Size(d, d)
+                        drawArc(Palette.Text.copy(alpha = 0.1f), 135f, 270f, false, topLeft, arc, style = Stroke(stroke, cap = StrokeCap.Round))
+                        val part = ((speed ?: 0).coerceIn(0, 200)) / 200f
+                        if (part > 0f) {
+                            drawArc(
+                                if ((speed ?: 0) > 130) Palette.Amber else look.accent,
+                                135f, 270f * part, false, topLeft, arc, style = Stroke(stroke, cap = StrokeCap.Round)
+                            )
+                        }
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            speed?.toString() ?: DASH, color = Palette.Text,
+                            fontSize = (side.value * 0.24f).coerceIn(28f, 80f).sp, fontWeight = FontWeight.Bold, maxLines = 1
+                        )
+                        Text("km/h", color = Palette.Muted, fontSize = (side.value * 0.065f).coerceIn(12f, 18f).sp)
+                    }
+                }
+                if (showCar) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(Modifier.fillMaxWidth()) {
+                        GaugeReading("okamž. spotřeba", car.instantL100?.let { decimal(it) + " l" } ?: "$DASH l", valueSp, Modifier.weight(1f))
+                        GaugeReading("průměr. spotřeba", car.trip1?.avgL100?.let { decimal(it) + " l" } ?: "$DASH l", valueSp, Modifier.weight(1f))
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Row(Modifier.fillMaxWidth()) {
+                        GaugeReading("ujeto", car.trip1?.distanceKm?.let { "$it km" } ?: "$DASH km", valueSp, Modifier.weight(1f))
+                        GaugeReading(
+                            "dojezd", car.rangeKm?.let { "$it km" } ?: "$DASH km", valueSp, Modifier.weight(1f),
+                            if ((car.rangeKm ?: 999) < 80) Palette.Amber else Palette.Text
+                        )
+                    }
                 }
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(speed?.toString() ?: DASH, color = Palette.Text, fontSize = 52.sp, fontWeight = FontWeight.Bold)
-                Text("km/h", color = Palette.Muted, fontSize = 15.sp)
-            }
         }
+    }
+}
+
+/** Popisek nahoře, hodnota pod ním, obojí na střed (spodní část rychloměru). */
+@Composable
+private fun GaugeReading(label: String, value: String, valueSp: Float, modifier: Modifier, color: Color = Palette.Text) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, color = Palette.Muted, fontSize = (valueSp * 0.55f).coerceIn(12f, 17f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, color = color, fontSize = valueSp.sp, fontWeight = FontWeight.Medium, maxLines = 1)
     }
 }
 
@@ -170,85 +213,60 @@ private fun TripStats(t: cz.kuba.dash407.data.TripStats, elapsedMs: Long, modifi
     }
 }
 
-/** Palubní počítač z auta a jízda z GPS v jednom widgetu. */
+/**
+ * Jízda: sedm řádků „popisek … hodnota“ přes celou výšku widgetu.
+ * Údaje z GPS (ujeto, čas v pohybu, průměr, maximum, začátek, počet jízd) a průměrná spotřeba
+ * z auta (Trip 2), když chybí, tak dlouhodobý průměr z tankování. Podržením se jízda vynuluje.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun TripComputerWidget(modifier: Modifier, preview: Boolean) {
-    val look = LocalLook.current
     val car by CarRepo.state.collectAsState()
     val t by Trip.state.collectAsState()
     val refuels by FuelLog.entries.collectAsState()
-    val now by rememberNow()
     val stats = FuelLog.stats(refuels)
-    val km = t.distanceM / 1000.0
-    val litres = stats.averageL100?.let { km * it / 100.0 }
-    val lastPricePerL = refuels.firstOrNull()?.let { if (it.litres > 0) it.price / it.litres else null }
-    val cost = if (litres != null && lastPricePerL != null) litres * lastPricePerL else null
-    val since = DateTimeFormatter.ofPattern("H:mm", Czech).format(Instant.ofEpochMilli(t.startedAt).atZone(ZoneId.systemDefault()))
-    // now jen vyvolá překreslení každou sekundu, aby běžel čas jízdy.
-    val elapsed = now.let { System.currentTimeMillis() - t.startedAt }
-    WidgetCard("Palubní počítač", modifier, action = {
-        Text(
-            "Vynulovat jízdu", color = look.accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = !preview) { Trip.reset() }.padding(horizontal = 4.dp)
-        )
-    }) {
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            val wide = maxWidth > 300.dp
-            val carBlock: @Composable (Modifier) -> Unit = { m ->
-                Column(m, verticalArrangement = Arrangement.SpaceEvenly) {
-                    Reading(car.instantL100?.let { decimal(it) } ?: DASH, "okamžitá l/100 km")
-                    Reading(
-                        car.rangeKm?.toString() ?: DASH, "dojezd km",
-                        valueColor = if ((car.rangeKm ?: 999) < 80) Palette.Amber else Palette.Text
-                    )
-                    Reading(car.trip1?.avgL100?.let { decimal(it) } ?: DASH, "průměr l/100 km (Trip 1)")
-                    if (!car.linked) Text("Bez dat z auta", color = Palette.Muted, fontSize = 13.sp)
-                }
-            }
-            val tripRows = listOf(
-                "Ujeto" to formatKm(t.distanceM) + " km",
-                "Čas" to formatDuration(elapsed),
-                "V pohybu" to formatDuration(t.movingMs),
-                "Průměr" to "${t.averageKmh.roundToInt()} km/h",
-                "Maximum" to "${t.topKmh.roundToInt()} km/h",
-                "Od" to since,
-                "Odhad" to (litres?.let { decimal(it) + " l" } ?: "– l") + ", " + (cost?.let { decimal(it, 0) + " Kč" } ?: "– Kč")
-            )
-            val tripBlock: @Composable (Modifier, Int) -> Unit = { m, count ->
-                Column(m, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    for ((label, value) in tripRows.take(count)) StatRow(label, value)
-                }
-            }
-            // Nízký a úzký widget (třeba 2 × 3): údaje z auta v jednom řádku, pod nimi tolik řádků jízdy, kolik se vejde.
-            val compact = !wide && maxHeight < 360.dp
-            if (compact) {
-                val rowsFit = ((maxHeight - 64.dp) / 24.dp).toInt().coerceIn(3, tripRows.size)
-                Column(Modifier.fillMaxSize()) {
-                    Row(Modifier.fillMaxWidth()) {
-                        SmallReading(car.instantL100?.let { decimal(it) } ?: DASH, "l/100 nyní", Modifier.weight(1f))
-                        SmallReading(car.rangeKm?.toString() ?: DASH, "dojezd km", Modifier.weight(1f),
-                            if ((car.rangeKm ?: 999) < 80) Palette.Amber else Palette.Text)
-                        SmallReading(car.trip1?.avgL100?.let { decimal(it) } ?: DASH, "průměr T1", Modifier.weight(1f))
+    var confirm by remember { mutableStateOf(false) }
+    val start = DateTimeFormatter.ofPattern("H:mm", Czech).format(Instant.ofEpochMilli(t.startedAt).atZone(ZoneId.systemDefault()))
+    val movingMin = t.movingMs / 60_000
+    val avgL100 = car.trip2?.avgL100?.toDouble() ?: stats.averageL100
+    val rows = listOf(
+        "Ujeto km" to String.format(Czech, "%.0f", t.distanceM / 1000.0),
+        "V pohybu" to String.format(Czech, "%02d:%02d", movingMin / 60, movingMin % 60),
+        "Průměr km/h" to t.averageKmh.roundToInt().toString(),
+        "Maximum km/h" to t.topKmh.roundToInt().toString(),
+        "Začátek" to start,
+        "Počet jízd" to t.drives.toString(),
+        "Průměr l/100km" to (avgL100?.let { decimal(it) } ?: DASH)
+    )
+    WidgetCard(null, modifier, padding = 14.dp) {
+        BoxWithConstraints(
+            Modifier.fillMaxSize().combinedClickable(enabled = !preview, onClick = {}, onLongClick = { confirm = true })
+        ) {
+            val fs = minOf(maxHeight.value / rows.size * 0.5f, maxWidth.value / 14f, 22f).coerceAtLeast(12f)
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
+                for ((label, value) in rows) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, color = TripLabel, fontSize = fs.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        Text(value, color = Palette.Text, fontSize = fs.sp, maxLines = 1)
                     }
-                    Spacer(Modifier.height(6.dp))
-                    tripBlock(Modifier.fillMaxWidth(), rowsFit)
-                }
-            } else if (wide) {
-                Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                    carBlock(Modifier.weight(1f).fillMaxHeight())
-                    Spacer(Modifier.width(14.dp))
-                    tripBlock(Modifier.weight(1.1f), tripRows.size)
-                }
-            } else {
-                Column(Modifier.fillMaxSize()) {
-                    carBlock(Modifier.fillMaxWidth().weight(1f))
-                    Spacer(Modifier.height(8.dp))
-                    tripBlock(Modifier.fillMaxWidth(), tripRows.size)
                 }
             }
         }
     }
+    if (confirm) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text("Vynulovat jízdu?") },
+            text = { Text("Ujetá vzdálenost, časy, rychlosti a počet jízd začnou znovu od nuly.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { Trip.reset(); confirm = false }) { Text("Vynulovat") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirm = false }) { Text("Zrušit") } }
+        )
+    }
 }
+
+/** Popisky řádků jízdy: světlejší než běžný šedý text. */
+private val TripLabel: Color
+    @Composable get() = if (Palette.lightState.value) Palette.Muted else Color(0xFFB4BECB)
 
 @Composable
 private fun SmallReading(value: String, label: String, modifier: Modifier, color: androidx.compose.ui.graphics.Color = Palette.Text) {

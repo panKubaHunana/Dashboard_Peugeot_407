@@ -1,4 +1,17 @@
-## Dash 407 – verze 2.5
+## Dash 407 – verze 2.6
+
+### Novinky ve 2.6 – nový vzhled widgetů podle vzoru
+- **Rychlá volba**: zelená kolečka s bílými iniciálami, nad nimi celé jméno (až na dva řádky), Kontakty v bílém kolečku.
+- **Rychloměr a spotřeba**: oblouk s rychlostí a pod ním okamžitá a průměrná spotřeba, ujeto a dojezd z auta.
+- **Jízda**: sedm řádků – Ujeto km, V pohybu, Průměr km/h, Maximum km/h, Začátek, Počet jízd (nové) a Průměr l/100km. Vynulování podržením widgetu.
+- **Počasí**: místo a obnovení vpravo nahoře, předpověď na 5 dní s barevnými ikonami, velká ikona a teplota. Bez popisu počasí, větru a vlhkosti.
+- **Přehrávač**: ♪ a název uprostřed, tlačítka předchozí – přehrát – další přes celou šířku.
+- **Stav vozu** (dřív Dveře): auto shora se značkami dveří a vedle Výstrahy vozu, Světla, Ruční brzda a Napětí v barvách (zelená = v pořádku, červená = pozor).
+- Výchozí rozložení plochy Domů odpovídá vzoru (Nastavení › obnovit výchozí rozložení).
+
+Stáhni `Dash407-2.6.apk` a nainstaluj ho přes starou verzi.
+
+### Novinka ve 2.5
 
 ### Novinka ve 2.5
 - **Jemnější mřížka ploch 8 × 32** (dřív 4 × 12): widgety jdou umístit a zmenšit mnohem přesněji. Stávající rozložení se při prvním spuštění samo převede, nic se neztratí ani nepřekryje. V režimu úprav jsou výraznější čáry původního dělení, slabší ty nové.

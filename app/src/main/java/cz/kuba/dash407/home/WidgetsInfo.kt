@@ -110,83 +110,90 @@ private fun weatherIcon(code: Int?, day: Boolean): ImageVector = when (code) {
     else -> Icons.Filled.Grain
 }
 
+/** Barva ikony počasí: slunce žluté, mraky šedé, déšť a sníh modré, bouřka oranžová. */
+private fun weatherTint(code: Int?, day: Boolean): Color = when (code) {
+    0, 1 -> if (day) Color(0xFFFFD60A) else Color(0xFFB0BEC5)
+    2, 3, 45, 48, null -> Color(0xFFC9C3C4)
+    95, 96, 99 -> Color(0xFFFFB300)
+    else -> Color(0xFF4FC3F7)
+}
+
+/**
+ * Počasí: nahoře vpravo místo a obnovení, pod tím předpověď na pět dní
+ * a dole velká ikona s aktuální teplotou.
+ */
 @Composable
 fun WeatherWidget(modifier: Modifier, preview: Boolean) {
-    val look = LocalLook.current
     DisposableEffect(Unit) {
         Weather.acquire()
         onDispose { Weather.release() }
     }
     val w by Weather.state.collectAsState()
     val place = w.place?.let { if (w.approximate) "$it (bez GPS)" else it }
-    WidgetCard("Počasí", modifier, action = {
-        if (place != null) {
-            Icon(Icons.Filled.LocationOn, null, tint = Palette.Muted, modifier = Modifier.size(15.dp))
-            Spacer(Modifier.width(2.dp))
-            Text(
-                place, color = Palette.Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 170.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-        }
-        Icon(
-            Icons.Filled.Refresh, "Obnovit", tint = Palette.Muted,
-            modifier = Modifier.size(24.dp).clip(CircleShape).clickable(enabled = !preview) { Weather.refresh() }
-        )
-    }) {
+    WidgetCard(null, modifier, padding = 14.dp) {
         Column(Modifier.fillMaxSize()) {
-            // Bez nadpisů widgetů se poloha ukáže tady.
-            if (!look.titles && place != null) {
-                Text(place, color = Palette.Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            ForecastRow(w.days)
-            Spacer(Modifier.height(6.dp))
-            Row(Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                Icon(weatherIcon(w.code, w.isDay), null, tint = look.accent, modifier = Modifier.fillMaxHeight(0.6f).width(64.dp))
-                Spacer(Modifier.width(8.dp))
-                FitText(
-                    w.tempC?.let { "${it.roundToInt()} °C" } ?: "– °C",
-                    Modifier.weight(1f).fillMaxHeight(),
-                    weight = FontWeight.Bold,
-                    align = androidx.compose.ui.text.style.TextAlign.Start
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.weight(1f))
+                if (place != null) {
+                    Icon(Icons.Filled.LocationOn, null, tint = WeatherMuted, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(place, color = WeatherMuted, fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    Spacer(Modifier.width(14.dp))
+                }
+                Icon(
+                    Icons.Filled.Refresh, "Obnovit", tint = WeatherMuted,
+                    modifier = Modifier.size(30.dp).clip(CircleShape).clickable(enabled = !preview) { Weather.refresh() }
                 )
             }
-            Text(
-                if (w.error != null && w.tempC == null) w.error ?: "" else Weather.describe(w.code),
-                color = Palette.Text, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, maxLines = 1
-            )
-            val parts = ArrayList<String>()
-            w.feelsC?.let { parts.add("Pocitově ${it.roundToInt()}°") }
-            w.windKmh?.let { parts.add("Vítr ${it.roundToInt()} km/h") }
-            w.humidity?.let { parts.add("Vlhkost $it %") }
-            Text(parts.joinToString(" · "), color = Palette.Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(8.dp))
+            ForecastRow(w.days)
+            BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                val temp = w.tempC?.let { "${it.roundToInt()} °C" }
+                if (temp == null && w.error != null) {
+                    Text(w.error ?: "", color = Palette.Muted, fontSize = 16.sp, maxLines = 2)
+                } else {
+                    val text = temp ?: "– °C"
+                    val iconSize = minOf(maxHeight * 0.8f, maxWidth * 0.3f, 150.dp)
+                    val density = androidx.compose.ui.platform.LocalDensity.current
+                    val byHeight = maxHeight.value * 0.82f
+                    val byWidth = (maxWidth - iconSize - 28.dp).value / (text.length * 0.58f)
+                    val sp = (minOf(byHeight, byWidth).coerceAtLeast(16f) / density.fontScale).coerceAtMost(130f)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(weatherIcon(w.code, w.isDay), null, tint = weatherTint(w.code, w.isDay), modifier = Modifier.size(iconSize))
+                        Spacer(Modifier.width(28.dp))
+                        Text(text, color = Palette.Text, fontSize = sp.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                    }
+                }
+            }
         }
     }
 }
 
-/** Denní předpověď: dnes a další dny, u každého ikona, nejvyšší a nejnižší teplota a pravděpodobnost srážek. */
+/** Místo a ikona obnovení: světle šedé. */
+private val WeatherMuted: Color
+    @Composable get() = if (Palette.lightState.value) Palette.Muted else Color(0xFFAEB7C4)
+
+/** Denní předpověď: dnes a další dny, u každého ikona a nejvyšší / nejnižší teplota. */
 @Composable
 private fun ForecastRow(days: List<DayForecast>) {
     if (days.isEmpty()) return
-    val look = LocalLook.current
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val count = if (maxWidth < 230.dp) 3 else 4
+        val count = when {
+            maxWidth < 230.dp -> 3
+            maxWidth < 330.dp -> 4
+            else -> 5
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             days.take(count).forEachIndexed { i, d ->
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         if (i == 0) "Dnes" else d.date.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, Czech).replaceFirstChar { it.uppercase() },
-                        color = Palette.Muted, fontSize = 13.sp, maxLines = 1
+                        color = WeatherMuted, fontSize = 17.sp, maxLines = 1
                     )
-                    Icon(weatherIcon(d.code, true), null, tint = look.accent, modifier = Modifier.size(26.dp))
+                    Icon(weatherIcon(d.code, true), null, tint = weatherTint(d.code, true), modifier = Modifier.size(34.dp))
                     Text(
                         (d.maxC?.let { "${it.roundToInt()}°" } ?: "–") + " / " + (d.minC?.let { "${it.roundToInt()}°" } ?: "–"),
-                        color = Palette.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1
-                    )
-                    val rain = d.rainPct
-                    Text(
-                        if (rain != null && rain >= 20) "$rain %" else " ",
-                        color = Palette.Muted, fontSize = 12.sp, maxLines = 1
+                        color = Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1
                     )
                 }
             }
@@ -194,29 +201,31 @@ private fun ForecastRow(days: List<DayForecast>) {
     }
 }
 
+/**
+ * Přehrávač: barevný přechod (nebo obal alba), uprostřed ♪ a název skladby,
+ * dole předchozí – přehrát – další přes celou šířku.
+ */
 @Composable
 fun MediaWidget(modifier: Modifier, preview: Boolean) {
     val context = LocalContext.current
     val look = LocalLook.current
     val m by NowPlaying.state.collectAsState()
     val musicPkg by Prefs.musicApp.collectAsState()
-    val apps by AppsRepo.apps.collectAsState()
-    val musicLabel = apps.firstOrNull { it.packageName == musicPkg }?.label
-        ?: if (musicPkg == Prefs.YT_MUSIC) "YouTube Music" else null
     val shape = RoundedCornerShape(look.corner)
     Box(modifier.fillMaxSize().clip(shape)) {
         val art = m.art
         if (art != null) {
             Image(art, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.25f), Color.Black.copy(alpha = 0.7f)))))
         } else {
             Box(
                 Modifier.fillMaxSize().background(
-                    Brush.linearGradient(listOf(look.accent, Color(0xFF8E7CC3), Color(0xFFE0876A), Color(0xFF2B2F3A)))
+                    Brush.linearGradient(listOf(Color(0xFF3D8FC4), Color(0xFF7466A6), Color(0xFFB8735E), Color(0xFF1A1414)))
                 )
             )
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.3f)))))
         }
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.15f), Color.Black.copy(alpha = 0.72f)))))
-        Column(
+        BoxWithConstraints(
             Modifier.fillMaxSize()
                 .clickable(enabled = !preview) {
                     val pkg = m.packageName
@@ -224,41 +233,40 @@ fun MediaWidget(modifier: Modifier, preview: Boolean) {
                     else if (pkg != null) AppsRepo.launch(context, pkg)
                     else if (musicPkg.isNotBlank()) AppsRepo.launch(context, musicPkg)
                 }
-                .padding(14.dp)
+                .padding(horizontal = 22.dp, vertical = 12.dp)
         ) {
-            if (look.titles) {
+            val big = minOf(maxHeight * 0.36f, 76.dp).coerceAtLeast(40.dp)
+            val small = big * 0.86f
+            val titleSp = minOf(maxHeight.value * 0.13f, 32f).coerceAtLeast(16f)
+            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(Modifier.weight(1.1f))
+                val title = when {
+                    !m.allowed -> "Povol přístup k oznámením"
+                    !m.hasSession -> "Nic nehraje"
+                    else -> m.title ?: "Neznámá skladba"
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.MusicNote, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("PRÁVĚ HRAJE", color = Color.White.copy(alpha = 0.9f), fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
+                    Icon(Icons.Filled.MusicNote, null, tint = Color.White, modifier = Modifier.size((titleSp * 1.1f).dp))
+                    Text(title, color = Color.White, fontSize = titleSp.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-            }
-            Spacer(Modifier.weight(1f))
-            val title = when {
-                !m.allowed -> "Povol přístup k oznámením"
-                !m.hasSession -> "Nic nehraje"
-                else -> m.title ?: "Neznámá skladba"
-            }
-            Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            val artist = m.artist
-            if (!m.hasSession && m.allowed && musicLabel != null) {
-                Text("Klepni a otevři $musicLabel", color = Color.White.copy(alpha = 0.8f), fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            if (m.hasSession && !artist.isNullOrBlank()) {
-                Text(artist, color = Color.White.copy(alpha = 0.8f), fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                RoundButton(Icons.Filled.SkipPrevious, "Předchozí", size = 42.dp) { if (!preview) NowPlaying.previous() }
-                RoundButton(
-                    if (m.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    if (m.playing) "Pozastavit" else "Přehrát", size = 50.dp, filled = true
-                ) {
-                    if (!preview) {
-                        if (!m.hasSession && musicPkg.isNotBlank()) AppsRepo.launch(context, musicPkg) else NowPlaying.playPause()
+                val artist = m.artist
+                if (m.hasSession && !artist.isNullOrBlank()) {
+                    Text(artist, color = Color.White.copy(alpha = 0.8f), fontSize = (titleSp * 0.65f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Spacer(Modifier.weight(0.5f))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    RoundButton(Icons.Filled.SkipPrevious, "Předchozí", size = small) { if (!preview) NowPlaying.previous() }
+                    RoundButton(
+                        if (m.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        if (m.playing) "Pozastavit" else "Přehrát", size = big, filled = true
+                    ) {
+                        if (!preview) {
+                            if (!m.hasSession && musicPkg.isNotBlank()) AppsRepo.launch(context, musicPkg) else NowPlaying.playPause()
+                        }
                     }
+                    RoundButton(Icons.Filled.SkipNext, "Další", size = small) { if (!preview) NowPlaying.next() }
                 }
-                RoundButton(Icons.Filled.SkipNext, "Další", size = 42.dp) { if (!preview) NowPlaying.next() }
+                Spacer(Modifier.weight(0.15f))
             }
         }
     }

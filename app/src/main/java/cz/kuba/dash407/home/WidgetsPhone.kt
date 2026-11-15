@@ -55,6 +55,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,6 +70,7 @@ import kotlinx.coroutines.withContext
 /**
  * Rychlá volba: pět vlastních kontaktů a šesté tlačítko otevře seznam kontaktů.
  * Vysoký úzký widget = svislý sloupec (výchozí), široký = řada, jinak mřížka 3 × 2.
+ * Nad zeleným kolečkem s iniciálami je celé jméno (až na dva řádky).
  * Klepnutí zavolá, podržení kontakt upraví, prázdné tlačítko kontakt přidá.
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -97,30 +99,41 @@ fun QuickDialWidget(modifier: Modifier, preview: Boolean) {
         BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             // Tvar widgetu určí rozložení: vysoký a úzký = sloupec, široký a nízký = řada, jinak 3 × 2.
             val gap = 6.dp
-            val label = 15.dp
+            // Jméno nad kolečkem má až dva řádky (např. „Delikomat / Liberec“).
+            val label = 40.dp
             val vertical = maxHeight > maxWidth * 1.8f
             val horizontal = !vertical && maxWidth > maxHeight * 1.8f
             val icon = when {
-                vertical -> minOf(maxWidth * 0.82f, (maxHeight - gap * 5) / 6 - label - 2.dp, 76.dp)
-                horizontal -> minOf((maxWidth - gap * 5) / 6 * 0.9f, maxHeight - label - 2.dp, 76.dp)
-                else -> minOf((maxWidth - gap * 2) / 3 * 0.85f, (maxHeight - gap) / 2 - label - 2.dp, 76.dp)
+                vertical -> minOf(maxWidth * 0.72f, (maxHeight - gap * 5) / 6 - label - 4.dp, 84.dp)
+                horizontal -> minOf((maxWidth - gap * 5) / 6 * 0.85f, maxHeight - label - 4.dp, 84.dp)
+                else -> minOf((maxWidth - gap * 2) / 3 * 0.8f, (maxHeight - gap) / 2 - label - 4.dp, 84.dp)
             }.coerceAtLeast(24.dp)
+            val nameWidth = when {
+                vertical -> maxWidth
+                horizontal -> (maxWidth - gap * 5) / 6
+                else -> (maxWidth - gap * 2) / 3
+            }
+
+            @Composable
+            fun Name(text: String, color: Color) {
+                Box(Modifier.height(label).width(nameWidth), contentAlignment = Alignment.BottomCenter) {
+                    Text(
+                        text, color = color, fontSize = 16.sp, lineHeight = 19.sp,
+                        textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
 
             @Composable
             fun Item(i: Int) {
-                // Jméno těsně nad kolečkem.
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                // Celé jméno těsně nad kolečkem.
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (i < QuickDial.SLOTS) {
                         val c = slots.getOrNull(i)
-                        Text(
-                            c?.name?.substringBefore(' ') ?: "Přidat",
-                            color = if (c != null) Palette.Text else Palette.Muted, fontSize = 12.sp,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.height(label).widthIn(max = icon + 20.dp)
-                        )
+                        Name(c?.name ?: "Přidat", if (c != null) Palette.Text else Palette.Muted)
                         Box(
                             Modifier.size(icon).clip(CircleShape)
-                                .background(if (c != null) Color.White.copy(alpha = 0.92f) else Palette.Text.copy(alpha = 0.08f))
+                                .background(if (c != null) DialGreen else Palette.Text.copy(alpha = 0.08f))
                                 .combinedClickable(
                                     enabled = !preview,
                                     onClick = { if (c != null) dial(c.number) else editing = i },
@@ -129,15 +142,15 @@ fun QuickDialWidget(modifier: Modifier, preview: Boolean) {
                             contentAlignment = Alignment.Center
                         ) {
                             if (c != null) {
-                                Text(initials(c.name), color = look.accent, fontSize = (icon.value * 0.36f).sp, fontWeight = FontWeight.Bold)
+                                Text(initials(c.name), color = Color.White, fontSize = (icon.value * 0.38f).sp, fontWeight = FontWeight.Bold)
                             } else {
                                 Icon(Icons.Filled.Add, "Přidat kontakt", tint = Palette.Muted, modifier = Modifier.size(icon * 0.45f))
                             }
                         }
                     } else {
-                        Text("Kontakty", color = Palette.Text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.height(label))
+                        Name("Kontakty", Palette.Text)
                         Box(
-                            Modifier.size(icon).clip(CircleShape).background(Color.White.copy(alpha = 0.92f))
+                            Modifier.size(icon).clip(CircleShape).background(Color(0xFFF1F3F6))
                                 .clickable(enabled = !preview) { QuickDial.openContacts(context) },
                             contentAlignment = Alignment.Center
                         ) {
@@ -166,6 +179,9 @@ fun QuickDialWidget(modifier: Modifier, preview: Boolean) {
     }
     editing?.let { i -> SlotDialog(i, slots.getOrNull(i)) { editing = null } }
 }
+
+/** Výrazná zelená kolečka kontaktů. */
+private val DialGreen = Color(0xFF10E01A)
 
 /** Iniciály do kolečka: „Honza Novák“ → „HN“, „Máma“ → „M“. */
 private fun initials(name: String): String =

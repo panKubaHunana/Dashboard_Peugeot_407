@@ -187,15 +187,19 @@ object LayoutStore {
     // Výchozí rozložení je zapsané v původní mřížce 4 × 12 a převádí se.
     private fun c(type: WidgetType, x: Int, y: Int, w: Int, h: Int) = Grid.cell(Cell(newId(), type.name, x, y, w, h))
 
+    // Widget zapsaný přímo v jemné mřížce 8 × 32.
+    private fun f(type: WidgetType, x: Int, y: Int, w: Int, h: Int) = Cell(newId(), type.name, x, y, w, h)
+
     fun defaults(): List<Page> = listOf(
         Page(
             Slot.CENTER, "Domů", true, listOf(
-                c(WidgetType.MAP, 0, 0, 4, 4),
-                c(WidgetType.DIRECTIONS, 0, 4, 2, 3),
-                c(WidgetType.WEATHER, 2, 4, 2, 3),
-                c(WidgetType.MEDIA, 0, 7, 2, 3),
-                c(WidgetType.TRIP_COMPUTER, 2, 7, 2, 3),
-                c(WidgetType.DOCK, 0, 10, 4, 2)
+                // Rozložení podle vzoru z 15. 11. 2026, rovnou v jemné mřížce 8 × 32.
+                f(WidgetType.SPEED_GAUGE, 1, 0, 3, 8),
+                f(WidgetType.TRIP_COMPUTER, 4, 0, 4, 8),
+                f(WidgetType.PHONE_DIAL, 0, 4, 1, 22),
+                f(WidgetType.WEATHER, 1, 8, 7, 9),
+                f(WidgetType.MEDIA, 1, 17, 7, 6),
+                f(WidgetType.DOORS, 1, 23, 7, 9)
             )
         ),
         Page(

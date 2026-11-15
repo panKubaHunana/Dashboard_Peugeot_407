@@ -95,7 +95,7 @@ object Weather {
                 "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f" +
                     "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day" +
                     "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
-                    "&forecast_days=4&wind_speed_unit=kmh&timezone=auto",
+                    "&forecast_days=5&wind_speed_unit=kmh&timezone=auto",
                 lat, lon
             )
             val root = JSONObject(Net.getText(url))

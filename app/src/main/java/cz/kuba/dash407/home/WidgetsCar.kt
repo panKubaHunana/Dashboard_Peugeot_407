@@ -2,6 +2,8 @@ package cz.kuba.dash407.home
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -55,35 +57,67 @@ fun CarComputerWidget(modifier: Modifier) {
     }
 }
 
+/**
+ * Stav vozu: Peugeot 407 SW shora se značkami dveří (otevřené svítí červeně)
+ * a vedle čtyři údaje – výstrahy, světla, ruční brzda a napětí palubní sítě.
+ */
 @Composable
 fun DoorsWidget(modifier: Modifier) {
     val car by CarRepo.state.collectAsState()
-    val doors = car.doors
-    WidgetCard("Dveře", modifier) {
+    val labels by cz.kuba.dash407.car.WarningLabels.labels.collectAsState()
+    val good = Palette.Good
+    val bad = Palette.Bad
+    val warn = when {
+        !car.linked -> "Bez dat z auta" to Palette.Muted
+        car.warnings.isEmpty() -> "Auto nehlásí žádnou výstrahu" to good
+        car.warnings.size == 1 -> (labels[car.warnings[0]] ?: "Výstraha kód 0x%02X".format(car.warnings[0])) to bad
+        else -> "Výstrahy: ${car.warnings.size}" to bad
+    }
+    val lights = when (car.headlights) {
+        true -> "Zapnuto" to good
+        false -> "Vypnuto" to Palette.Text
+        null -> DASH to Palette.Muted
+    }
+    val brake = when (car.handbrake) {
+        true -> "Zataženo" to bad
+        false -> "Uvolněno" to good
+        null -> DASH to Palette.Muted
+    }
+    val v = car.volts
+    val volts = when {
+        v == null -> "$DASH V" to Palette.Muted
+        v < 11.8 -> decimal(v) + " V" to bad
+        v < 12.2 -> decimal(v) + " V" to Palette.Amber
+        else -> decimal(v) + " V" to good
+    }
+    val rows = listOf("VÝSTRAHY VOZU" to warn, "SVĚTLA" to lights, "RUČNÍ BRZDA" to brake, "NAPĚTÍ" to volts)
+    WidgetCard(null, modifier, padding = 14.dp, onClick = { UiBus.open(Panel.CAR) }) {
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            CarPicture(doors ?: Doors(), Modifier.fillMaxHeight().padding(vertical = 4.dp))
+            Box(Modifier.weight(0.85f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                CarPicture(car.doors ?: Doors(), Modifier.fillMaxHeight().padding(vertical = 4.dp))
+            }
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    when {
-                        doors == null -> "Čekám na data"
-                        doors.anyOpen -> "Otevřeno"
-                        else -> "Vše zavřeno"
-                    },
-                    color = when {
-                        doors == null -> Palette.Muted
-                        doors.anyOpen -> Palette.Bad
-                        else -> Palette.Good
-                    },
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                if (car.handbrake == true) Text("Ruční brzda zatažená", color = Palette.Amber, fontSize = 14.sp)
-                if (car.warnings.isNotEmpty()) Text("Výstrahy vozu: ${car.warnings.size}", color = Palette.Amber, fontSize = 14.sp)
+            BoxWithConstraints(Modifier.weight(1.15f).fillMaxHeight()) {
+                val fs = minOf(maxHeight.value / 9.5f, maxWidth.value / 13f, 22f).coerceAtLeast(12f)
+                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
+                    for ((label, value) in rows) {
+                        Column {
+                            Text(label, color = CarLabel, fontSize = fs.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text(
+                                value.first, color = value.second, fontSize = fs.sp, fontWeight = FontWeight.Bold,
+                                maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
+
+/** Nadpisy údajů o voze: světle šedé. */
+private val CarLabel: androidx.compose.ui.graphics.Color
+    @Composable get() = if (Palette.lightState.value) Palette.Muted else androidx.compose.ui.graphics.Color(0xFFB4BECB)
 
 @Composable
 fun VoltageWidget(modifier: Modifier) {

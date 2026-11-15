@@ -125,7 +125,7 @@ fun DrawScope.drawCar(doors: Doors) {
     val left = (w - bw) / 2f
     val red = Palette.Bad
     val outline = Palette.Muted.copy(alpha = 0.7f)
-    val line = Stroke(1.5.dp.toPx())
+    val line = Stroke(2.dp.toPx())
     // Kapota a páté dveře: jen při otevření, červený nádech přes karoserii.
     if (doors.bonnet) drawRoundRect(red.copy(alpha = 0.45f), Offset(left + bw * 0.1f, h * 0.02f), Size(bw * 0.8f, h * 0.2f), CornerRadius(14f))
     if (doors.tailgate) drawRoundRect(red.copy(alpha = 0.45f), Offset(left + bw * 0.12f, h * 0.8f), Size(bw * 0.76f, h * 0.18f), CornerRadius(14f))
@@ -134,7 +134,7 @@ fun DrawScope.drawCar(doors: Doors) {
     fun door(open: Boolean, x: Float, y: Float, bodyX: Float) {
         val tl = Offset(x, y)
         val sz = Size(doorW, doorH)
-        drawRoundRect(if (open) red.copy(alpha = 0.75f) else Palette.TileHigh.copy(alpha = 0.55f), tl, sz, CornerRadius(8f))
+        if (open) drawRoundRect(red.copy(alpha = 0.75f), tl, sz, CornerRadius(8f))
         drawRoundRect(if (open) red else outline, tl, sz, CornerRadius(8f), style = line)
         if (open) drawRoundRect(red.copy(alpha = 0.35f), Offset(bodyX, y), Size(bw * 0.3f, doorH), CornerRadius(8f))
     }

@@ -9,7 +9,11 @@ data class TripStats(
     val startedAt: Long = System.currentTimeMillis(),
     val distanceM: Double = 0.0,
     val movingMs: Long = 0L,
-    val topKmh: Float = 0f
+    val topKmh: Float = 0f,
+    /** Počet jízd: nová jízda začne, když se auto rozjede po stání delším než [Trip.PAUSE_MS]. */
+    val drives: Int = 0,
+    /** Kdy se auto naposledy pohybovalo (0 = zatím ne). */
+    val lastMovingAt: Long = 0L
 ) {
     /** Průměrná rychlost za dobu, kdy se auto pohybovalo. */
     val averageKmh: Double
@@ -19,6 +23,8 @@ data class TripStats(
 /** Palubní počítač z GPS. Ukládá se, takže přežije vypnutí rádia. */
 object Trip {
     private const val KEY = "trip_v1"
+    /** Stání delší než 5 minut ukončí jízdu; další rozjezd se počítá jako nová jízda. */
+    const val PAUSE_MS = 5 * 60_000L
     private val _state = MutableStateFlow(TripStats())
     val state: StateFlow<TripStats> = _state
 
@@ -32,12 +38,15 @@ object Trip {
         loaded = true
         val raw = try { Prefs.shared().getString(KEY, null) } catch (e: Exception) { null } ?: return
         val p = raw.split(';')
-        if (p.size == 4) {
+        if (p.size >= 4) {
             _state.value = TripStats(
                 startedAt = p[0].toLongOrNull() ?: System.currentTimeMillis(),
                 distanceM = p[1].toDoubleOrNull() ?: 0.0,
                 movingMs = p[2].toLongOrNull() ?: 0L,
-                topKmh = p[3].toFloatOrNull() ?: 0f
+                topKmh = p[3].toFloatOrNull() ?: 0f,
+                // Starší uložená jízda (verze do 2.5) počet jízd neznala: počítá se jako jedna, pokud už se jelo.
+                drives = p.getOrNull(4)?.toIntOrNull() ?: if ((p[1].toDoubleOrNull() ?: 0.0) > 0.0) 1 else 0,
+                lastMovingAt = p.getOrNull(5)?.toLongOrNull() ?: 0L
             )
         }
     }
@@ -54,10 +63,13 @@ object Trip {
         val speed = f.speedKmh ?: (d / dt * 3600.0).toFloat()
         if (speed < 3f || d > 400) return
         val s = _state.value
+        val newDrive = s.lastMovingAt == 0L || f.time - s.lastMovingAt > PAUSE_MS
         _state.value = s.copy(
             distanceM = s.distanceM + d,
             movingMs = s.movingMs + dt,
-            topKmh = max(s.topKmh, speed)
+            topKmh = max(s.topKmh, speed),
+            drives = if (newDrive) s.drives + 1 else s.drives,
+            lastMovingAt = f.time
         )
         if (f.time - lastSave > 30_000) save()
     }
@@ -73,7 +85,7 @@ object Trip {
         lastSave = System.currentTimeMillis()
         val s = _state.value
         try {
-            Prefs.shared().edit().putString(KEY, "${s.startedAt};${s.distanceM};${s.movingMs};${s.topKmh}").apply()
+            Prefs.shared().edit().putString(KEY, "${s.startedAt};${s.distanceM};${s.movingMs};${s.topKmh};${s.drives};${s.lastMovingAt}").apply()
         } catch (e: Exception) {
             // Úložiště ještě není připravené.
         }
