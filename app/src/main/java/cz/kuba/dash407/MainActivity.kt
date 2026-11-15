@@ -143,6 +143,8 @@ private fun AppRoot() {
         PanelHost()
         // Aktualizace z GitHubu a novinky po aktualizaci – až po úvodní animaci.
         if (!intro && !IntroState.preview) cz.kuba.dash407.ui.UpdateDialogs()
+        // Automatické tankování: nabídka zápisu, když auto stojí u pumpy.
+        if (!intro && !IntroState.preview) cz.kuba.dash407.ui.FuelPromptDialog()
         if (intro || IntroState.preview) {
             IntroOverlay {
                 IntroState.playedThisProcess = true

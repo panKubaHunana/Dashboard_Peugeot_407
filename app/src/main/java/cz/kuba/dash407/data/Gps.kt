@@ -92,6 +92,7 @@ object Gps {
         _fix.value = f
         _speedKmh.value = f.speedKmh?.roundToInt()
         Trip.onFix(f)
+        FuelStops.onFix(f)
         Perf.onFix(f)
         SpeedLimit.onFix(f)
         RouteState.onFix(f)

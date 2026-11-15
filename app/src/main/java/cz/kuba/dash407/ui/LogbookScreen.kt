@@ -274,7 +274,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.DrivesTab(
                                 Icon(Icons.Filled.LocalGasStation, null, tint = Palette.Amber, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(4.dp))
                                 Text(
-                                    "Tankování ${decimal(f.litres)} l · ${decimal(f.price, 0)} Kč" + if (f.full) " · plná" else "",
+                                    (f.station ?: "Tankování") + " · ${decimal(f.litres)} l · ${decimal(f.price, 0)} Kč" + if (f.full) " · plná" else "",
                                     color = Palette.Text, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
                                 )
                             }

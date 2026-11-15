@@ -1,3 +1,15 @@
+## Dash 407 – verze 2.10
+
+### Novinka ve 2.10 – automatické tankování
+- Když auto **stojí aspoň minutu u čerpací stanice** (do 70 m, podle OpenStreetMap), ukáže se okno **„Tankoval jsi?“** s názvem stanice a předvyplněným stavem tachometru. Doplníš litry a cenu, rovnou vidíš Kč/l.
+- Když rádio naběhne u pumpy po nastartování, okno se ukáže hned.
+- **Později** – okno se vrátí při další zastávce po odjezdu (nejdéle hodinu). **Netankoval jsem** – u té stanice 3 hodiny klid. Při rozjezdu nad 15 km/h okno samo zmizí a vrátí se na další zastávce.
+- Nic se nenabízí, když už je tankování zapsané za poslední 2 hodiny.
+- Tankování si pamatuje **název stanice a její polohu** (Tankování, Kniha jízd, teplotní mapa, Excel – nový sloupec Čerpací stanice).
+- Zapnutí a vypnutí: Menu › Nastavení › Automatické tankování.
+
+Stáhni `Dash407-2.10.apk` (od 2.7 se nabídne samo).
+
 ## Dash 407 – verze 2.9
 
 ### Novinky ve 2.9 – Kniha jízd naplno
@@ -9,7 +21,6 @@
 - **Excel**: tři listy – Kniha jízd (nově tachometr, čas jízdy, palivo a náklady), Tankování a Statistika.
 - Filtr období nově i **Rok**; Týden začíná pondělím.
 
-Stáhni `Dash407-2.9.apk` (od 2.7 se nabídne samo).
 
 ## Dash 407 – verze 2.8
 

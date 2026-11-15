@@ -17,7 +17,9 @@ data class Refuel(
     val full: Boolean,
     /** Kde se tankovalo (GPS v okamžiku zápisu), pokud byla poloha známá. */
     val lat: Double? = null,
-    val lon: Double? = null
+    val lon: Double? = null,
+    /** Čerpací stanice (z automatického tankování), např. „Shell, Pražská“. */
+    val station: String? = null
 )
 
 /** Souhrn knihy tankování. */
@@ -59,7 +61,8 @@ object FuelLog {
                         price = o.getDouble("price"),
                         full = o.optBoolean("full", true),
                         lat = if (o.has("lat")) o.getDouble("lat") else null,
-                        lon = if (o.has("lon")) o.getDouble("lon") else null
+                        lon = if (o.has("lon")) o.getDouble("lon") else null,
+                        station = o.optString("station").takeIf { it.isNotBlank() }
                     )
                 )
             }
@@ -80,7 +83,7 @@ object FuelLog {
                     .put("litres", r.litres)
                     .put("price", r.price)
                     .put("full", r.full)
-                    .also { o -> r.lat?.let { o.put("lat", it) }; r.lon?.let { o.put("lon", it) } }
+                    .also { o -> r.lat?.let { o.put("lat", it) }; r.lon?.let { o.put("lon", it) }; r.station?.let { o.put("station", it) } }
             )
         }
         try {
@@ -90,11 +93,14 @@ object FuelLog {
         }
     }
 
-    fun add(odometerKm: Int, litres: Double, price: Double, full: Boolean) {
+    fun add(odometerKm: Int, litres: Double, price: Double, full: Boolean, station: Station? = null) {
         val now = System.currentTimeMillis()
         val fix = Gps.fix.value?.takeIf { now - it.time < 10 * 60_000 }
         val newest = odometerKm >= (_entries.value.maxOfOrNull { it.odometerKm } ?: 0)
-        val next = (_entries.value + Refuel(now, now, odometerKm, litres, price, full, fix?.lat, fix?.lon))
+        // U automatického tankování se uloží poloha stanice, jinak poloha auta.
+        val lat = station?.lat ?: fix?.lat
+        val lon = station?.lon ?: fix?.lon
+        val next = (_entries.value + Refuel(now, now, odometerKm, litres, price, full, lat, lon, station?.name))
             .sortedByDescending { it.odometerKm }
         _entries.value = next
         write(next)

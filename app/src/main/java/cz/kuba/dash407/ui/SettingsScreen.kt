@@ -158,6 +158,11 @@ fun SettingsScreen() {
             }
         }
 
+        val autoFuel by cz.kuba.dash407.data.FuelStops.enabled.collectAsState()
+        Card("Automatické tankování", "Když auto stojí aspoň minutu u čerpací stanice (podle OpenStreetMap), Dash 407 nabídne zápis tankování s předvyplněným tachometrem. Okno zmizí při rozjezdu a ukáže se ještě jednou při další zastávce.") {
+            SwitchLine("Nabízet zápis tankování u pumpy", autoFuel) { cz.kuba.dash407.data.FuelStops.setEnabled(it) }
+        }
+
         Card("Lišty rádia (zkušebně)", "Skryje lišty jednotky, dokud je Dash 407 vpředu, a uvolní tak místo pro widgety. Funguje jen tehdy, když je rádio kreslí jako systémové lišty Androidu. Tahem prstem od horního (dolního) okraje se lišta na chvíli ukáže.") {
             SwitchLine("Skrýt horní lištu (napětí, hlasitost, ikony aplikací)", hideTop) { Prefs.setHideTopBar(it) }
             SwitchLine("Skrýt spodní lištu (klimatizace, hlasitost, Domů)", hideBottom) { Prefs.setHideBottomBar(it) }

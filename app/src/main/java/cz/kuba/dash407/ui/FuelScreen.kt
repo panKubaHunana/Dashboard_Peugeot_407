@@ -133,7 +133,8 @@ private fun RefuelRow(r: Refuel, consumption: Double?, onDelete: () -> Unit) {
                 )
                 Text(
                     stringResource(R.string.fuel_row_detail, decimal(r.litres, 2), decimal(r.price, 0)) +
-                        if (r.full) "" else " · " + stringResource(R.string.fuel_row_partial),
+                        (if (r.full) "" else " · " + stringResource(R.string.fuel_row_partial)) +
+                        (r.station?.let { " · $it" } ?: ""),
                     color = Palette.Muted,
                     fontSize = 15.sp
                 )

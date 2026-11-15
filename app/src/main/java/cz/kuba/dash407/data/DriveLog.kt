@@ -321,13 +321,13 @@ object DriveLog {
             drives.end()
         }
 
-        val fuel = Sheet("Tankování", listOf(11, 8, 12, 10, 11, 10, 11, 12, 13, 13))
-        fuel.header("Datum", "Čas", "Tachometr", "Litry", "Cena Kč", "Kč/l", "Plná nádrž", "Spotřeba l/100", "Šířka", "Délka")
+        val fuel = Sheet("Tankování", listOf(11, 8, 28, 12, 10, 11, 10, 11, 12, 13, 13))
+        fuel.header("Datum", "Čas", "Čerpací stanice", "Tachometr", "Litry", "Cena Kč", "Kč/l", "Plná nádrž", "Spotřeba l/100", "Šířka", "Délka")
         val perFill = FuelLog.consumptions(allRefuels)
         for (f in refuels) {
             val t = Instant.ofEpochMilli(f.at).atZone(zone)
             fuel.begin()
-            fuel.text(dateF.format(t)); fuel.text(timeF.format(t))
+            fuel.text(dateF.format(t)); fuel.text(timeF.format(t)); fuel.text(f.station)
             fuel.num(f.odometerKm.toDouble(), 3); fuel.num(f.litres, 2); fuel.num(f.price, 7)
             fuel.num(if (f.litres > 0) f.price / f.litres else null, 7)
             fuel.text(if (f.full) "ano" else "ne"); fuel.num(perFill[f.id], 2)
