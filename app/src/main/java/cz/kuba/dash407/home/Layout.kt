@@ -36,7 +36,7 @@ data class Cell(
 
 data class Page(val slot: Slot, val name: String, val enabled: Boolean, val cells: List<Cell>)
 
-/** Převod z původní mřížky 4 × 12 na jemnou 8 × 32 (verze 2.5). */
+/** Převod z původní mřížky 4 × 12 na čtverečkovou 16 × 32 (verze 2.6). */
 object Grid {
     const val OLD_COLS = 4
     const val OLD_ROWS = 12
@@ -52,9 +52,12 @@ object Grid {
 
 /** Rozložení všech ploch, uložené jako JSON. */
 object LayoutStore {
-    const val COLS = 8
+    /** 16 sloupců × 32 řádků: buňka je zhruba čtvereček (dřív 8 × 32 = obdélníky na šířku). */
+    const val COLS = 16
     const val ROWS = 32
     private const val GRID_FLAG = "layout_grid_8x32"
+    /** Rozložení už je ve čtverečkové mřížce 16 × 32. */
+    private const val SQUARE_FLAG = "layout_grid_16x32"
     private const val KEY = "layout_v1"
 
     private val _pages = MutableStateFlow(defaults())
@@ -66,8 +69,8 @@ object LayoutStore {
         loaded = true
         val raw = try { Prefs.shared().getString(KEY, null) } catch (e: Exception) { null }
         if (raw == null) {
-            // Nová instalace: výchozí rozložení už je v jemné mřížce.
-            try { Prefs.shared().edit().putBoolean(GRID_FLAG, true).apply() } catch (e: Exception) { }
+            // Nová instalace: výchozí rozložení už je ve čtverečkové mřížce.
+            try { Prefs.shared().edit().putBoolean(GRID_FLAG, true).putBoolean(SQUARE_FLAG, true).apply() } catch (e: Exception) { }
             return
         }
         try {
@@ -92,6 +95,7 @@ object LayoutStore {
             _pages.value = merged.map { if (it.slot == Slot.CENTER) it.copy(enabled = true) else it }
             migrateV2()
             migrateGrid()
+            migrateSquare()
         } catch (e: Exception) {
             _pages.value = defaults()
         }
@@ -126,12 +130,20 @@ object LayoutStore {
         Prefs.shared().edit().putBoolean(flag, true).apply()
     }
 
-    /** Jednorázový převod uloženého rozložení z mřížky 4 × 12 na 8 × 32. */
+    /** Jednorázový převod uloženého rozložení z mřížky 4 × 12 rovnou na 16 × 32. */
     private fun migrateGrid() {
         if (Prefs.shared().getBoolean(GRID_FLAG, false)) return
         _pages.value = _pages.value.map { p -> p.copy(cells = p.cells.map { Grid.cell(it) }) }
         save()
-        Prefs.shared().edit().putBoolean(GRID_FLAG, true).apply()
+        Prefs.shared().edit().putBoolean(GRID_FLAG, true).putBoolean(SQUARE_FLAG, true).apply()
+    }
+
+    /** Jednorázový převod z 8 × 32 na 16 × 32: každý sloupec se rozdělí napůl, widgety zůstanou na místě. */
+    private fun migrateSquare() {
+        if (Prefs.shared().getBoolean(SQUARE_FLAG, false)) return
+        _pages.value = _pages.value.map { p -> p.copy(cells = p.cells.map { it.copy(x = it.x * 2, w = it.w * 2) }) }
+        save()
+        Prefs.shared().edit().putBoolean(SQUARE_FLAG, true).apply()
     }
 
     private fun save() {
@@ -187,13 +199,13 @@ object LayoutStore {
     // Výchozí rozložení je zapsané v původní mřížce 4 × 12 a převádí se.
     private fun c(type: WidgetType, x: Int, y: Int, w: Int, h: Int) = Grid.cell(Cell(newId(), type.name, x, y, w, h))
 
-    // Widget zapsaný přímo v jemné mřížce 8 × 32.
-    private fun f(type: WidgetType, x: Int, y: Int, w: Int, h: Int) = Cell(newId(), type.name, x, y, w, h)
+    // Widget zapsaný v mřížce 8 × 32 (sloupce se zdvojí na 16 × 32).
+    private fun f(type: WidgetType, x: Int, y: Int, w: Int, h: Int) = Cell(newId(), type.name, x * 2, y, w * 2, h)
 
     fun defaults(): List<Page> = listOf(
         Page(
             Slot.CENTER, "Domů", true, listOf(
-                // Rozložení podle vzoru z 15. 11. 2026, rovnou v jemné mřížce 8 × 32.
+                // Rozložení podle vzoru z 15. 11. 2026, zapsané v mřížce 8 × 32.
                 f(WidgetType.SPEED_GAUGE, 1, 0, 3, 8),
                 f(WidgetType.TRIP_COMPUTER, 4, 0, 4, 8),
                 f(WidgetType.PHONE_DIAL, 0, 4, 1, 22),

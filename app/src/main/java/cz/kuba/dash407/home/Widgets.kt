@@ -16,7 +16,7 @@ enum class Category(val label: String) {
 /** Všechny widgety, které jdou dát na plochu, s výchozí a nejmenší velikostí v mřížce 4 × 12. */
 /**
  * Velikosti jsou zapsané v původní mřížce 4 × 12; skutečné hodnoty v jemné mřížce 8 × 32
- * se dopočítají (šířka × 2, výška × 32/12). Minimum je jemnější, aby šly widgety víc zmenšit.
+ * se dopočítají v mřížce 16 × 32 (šířka × 4, výška × 32/12). Minimum je jemnější, aby šly widgety víc zmenšit.
  */
 enum class WidgetType(
     val title: String,
@@ -52,7 +52,8 @@ enum class WidgetType(
 
     val w: Int = Grid.col(baseW)
     val h: Int = Grid.row(baseH)
-    val minW: Int = baseMinW
+    // Nejmenší šířka zůstává fyzicky stejná jako v 8 × 32 (jeden dřívější sloupec = dva nové).
+    val minW: Int = baseMinW * 2
     val minH: Int = baseMinH * 2
 
     companion object {

@@ -181,7 +181,7 @@ private fun pageTransition(from: Slot, to: Slot, animate: Boolean): ContentTrans
     }
 }
 
-/** Mřížka 4 × 12 s widgety jedné plochy. V režimu úprav jde widget posunout a roztáhnout. */
+/** Mřížka 16 × 32 s widgety jedné plochy. V režimu úprav jde widget posunout a roztáhnout. */
 @Composable
 fun PageGrid(page: Page, editing: Boolean, undo: MutableList<Pair<Slot, List<Cell>>>) {
     val look = LocalLook.current
@@ -192,8 +192,8 @@ fun PageGrid(page: Page, editing: Boolean, undo: MutableList<Pair<Slot, List<Cel
             Canvas(Modifier.fillMaxSize()) {
                 val cwp = size.width / LayoutStore.COLS
                 val chp = size.height / LayoutStore.ROWS
-                // Jemná mřížka 8 × 32: každá druhá čára (původní dělení) je výraznější.
-                for (i in 0..LayoutStore.COLS) drawLine(Color.White.copy(alpha = if (i % 2 == 0) 0.12f else 0.05f), Offset(i * cwp, 0f), Offset(i * cwp, size.height), 1.2f)
+                // Čtverečková mřížka 16 × 32: čáry původního dělení 4 × 12 jsou výraznější.
+                for (i in 0..LayoutStore.COLS) drawLine(Color.White.copy(alpha = if (i % 4 == 0) 0.12f else 0.05f), Offset(i * cwp, 0f), Offset(i * cwp, size.height), 1.2f)
                 for (j in 0..LayoutStore.ROWS) drawLine(Color.White.copy(alpha = if (j % 4 == 0) 0.12f else 0.04f), Offset(0f, j * chp), Offset(size.width, j * chp), 1f)
             }
         }

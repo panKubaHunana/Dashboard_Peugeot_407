@@ -8,8 +8,9 @@
 - **Přehrávač**: ♪ a název uprostřed, tlačítka předchozí – přehrát – další přes celou šířku.
 - **Stav vozu** (dřív Dveře): auto shora se značkami dveří a vedle Výstrahy vozu, Světla, Ruční brzda a Napětí v barvách (zelená = v pořádku, červená = pozor).
 - Výchozí rozložení plochy Domů odpovídá vzoru (Nastavení › obnovit výchozí rozložení).
+- **Čtverečková mřížka 16 × 32**: každý obdélník mřížky je rozdělený na dvě poloviny, takže buňky jsou čtverečky a widgety jde umístit a roztáhnout dvakrát jemněji do šířky. Uložené rozložení se při prvním spuštění samo převede, widgety zůstanou na svém místě. V režimu úprav jsou výraznější čáry původního dělení 4 × 12.
 
-Stáhni `Dash407-2.6.apk` a nainstaluj ho přes starou verzi.
+Stáhni nejnovější `Dash407-2.6….apk` a nainstaluj ho přes starou verzi.
 
 ### Novinka ve 2.5
 
