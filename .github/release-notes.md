@@ -2,6 +2,7 @@
 
 - Navigace: mapa se už nesmyslně neotáčí
 - Navigace: nové tlačítko kompas – sever nahoře / mapa ve směru jízdy
+- Rychlost: widget nově ukazuje okamžitou spotřebu a dojezd
 
 Stáhni `Dash407-2.13.apk` (nabídne se samo).
 

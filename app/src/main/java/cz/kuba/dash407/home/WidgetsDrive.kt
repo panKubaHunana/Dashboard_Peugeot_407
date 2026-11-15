@@ -73,14 +73,43 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+/**
+ * Rychlost: nahoře okamžitá spotřeba a dojezd z auta (hodnoty v barvě zvýraznění),
+ * uprostřed velká rychlost z GPS a dole „km/h · GPS“. U nízkého widgetu zůstane jen rychlost.
+ */
 @Composable
 fun SpeedWidget(modifier: Modifier) {
+    val look = LocalLook.current
     val speed by Gps.speedKmh.collectAsState()
-    WidgetCard("Rychlost", modifier) {
-        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            FitText(speed?.toString() ?: DASH, Modifier.fillMaxWidth().weight(1f), weight = FontWeight.Bold, maxSp = 160f, widthPerChar = 0.62f)
-            Text("km/h · GPS", color = Palette.Muted, fontSize = 14.sp)
+    val car by CarRepo.state.collectAsState()
+    WidgetCard(null, modifier, padding = 10.dp) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val showCar = maxHeight > 120.dp && maxWidth > 150.dp
+            val labelSp = minOf(maxWidth.value / 18f, maxHeight.value / 12f, 18f).coerceAtLeast(12f)
+            val valueSp = labelSp * 1.4f
+            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (showCar) {
+                    Row(Modifier.fillMaxWidth()) {
+                        SpeedReading("okamž. spotřeba", car.instantL100?.let { decimal(it) + " l" } ?: "$DASH l", labelSp, valueSp, look.accent, Modifier.weight(1f))
+                        SpeedReading(
+                            "dojezd", car.rangeKm?.let { "$it km" } ?: "$DASH km", labelSp, valueSp,
+                            if ((car.rangeKm ?: 999) < 80) Palette.Amber else look.accent, Modifier.weight(1f)
+                        )
+                    }
+                }
+                FitText(speed?.toString() ?: DASH, Modifier.fillMaxWidth().weight(1f), weight = FontWeight.Bold, maxSp = 160f, widthPerChar = 0.62f)
+                Text("km/h · GPS", color = Palette.Muted, fontSize = 12.sp)
+            }
         }
+    }
+}
+
+/** Popisek (bílý) a pod ním hodnota v barvě zvýraznění, na střed – horní řádek widgetu Rychlost. */
+@Composable
+private fun SpeedReading(label: String, value: String, labelSp: Float, valueSp: Float, color: Color, modifier: Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, color = Palette.Text, fontSize = labelSp.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, color = color, fontSize = valueSp.sp, maxLines = 1)
     }
 }
 
