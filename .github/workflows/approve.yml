@@ -1,0 +1,64 @@
+name: Schválení návrhu ze sandboxu
+
+# Kuba v sandboxu klepne na „Schválit a nahrát“ → vznikne úkol „Schválit návrh 2.13“.
+# Tento workflow pak větev navrh-2.13 sloučí do main a spustí sestavení APK.
+# Funguje jen pro úkoly založené majitelem repozitáře.
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: approve
+  cancel-in-progress: false
+
+jobs:
+  approve:
+    if: github.event.issue.user.login == github.repository_owner && startsWith(github.event.issue.title, 'Schválit návrh ')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stažení kódu
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sloučení návrhu do main
+        id: merge
+        env:
+          TITLE: ${{ github.event.issue.title }}
+        run: |
+          VER=$(printf '%s' "$TITLE" | grep -oP 'návrh \K[0-9]+(\.[0-9]+)+' | head -1)
+          if [ -z "$VER" ]; then echo "V názvu úkolu chybí číslo verze."; exit 1; fi
+          BRANCH="navrh-$VER"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          git fetch origin "$BRANCH"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge --no-ff -m "Schválený návrh $VER (úkol #${{ github.event.issue.number }})" "origin/$BRANCH"
+          git push origin HEAD:main
+          git push origin --delete "$BRANCH" || true
+
+      - name: Spuštění sestavení APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build.yml --ref main
+
+      - name: Odpověď v úkolu
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --body "✅ Návrh ${{ steps.merge.outputs.ver }} je schválený a sloučený do main. Sestavení APK běží – rádio verzi nabídne samo, až bude hotové (asi za 5 minut). Sandbox se přepne do 30 minut."
+          gh issue close ${{ github.event.issue.number }}
+
+      - name: Chyba
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue comment ${{ github.event.issue.number }} --body "❌ Schválení se nepovedlo (chybí větev návrhu nebo konflikt). Napiš Claudovi, ať se podívá do záložky Actions."
