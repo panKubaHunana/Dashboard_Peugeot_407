@@ -1,5 +1,7 @@
 package cz.kuba.dash407.home
 
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
@@ -188,13 +190,25 @@ fun PageGrid(page: Page, editing: Boolean, undo: MutableList<Pair<Slot, List<Cel
     BoxWithConstraints(Modifier.fillMaxSize().padding(look.gap / 2)) {
         val cw = maxWidth / LayoutStore.COLS
         val ch = maxHeight / LayoutStore.ROWS
+        // Čtverce: počet řádků podle tvaru plochy. Přepočet jen při ustálené velikosti,
+        // bez klávesnice a jen u plné plochy (ne při dočasném zmenšení okna).
+        val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
+        val imeVisible = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
+        val areaW = maxWidth
+        val areaH = maxHeight
+        androidx.compose.runtime.LaunchedEffect(areaW, areaH, imeVisible) {
+            if (imeVisible || areaW.value <= 0f || areaH < screenH * 0.5f) return@LaunchedEffect
+            kotlinx.coroutines.delay(1500)
+            val rows = Math.round(LayoutStore.COLS * areaH.value / areaW.value).coerceIn(12, 48)
+            if (kotlin.math.abs(rows - LayoutStore.ROWS) >= 1) LayoutStore.setRows(rows)
+        }
         if (editing && UiBus.showGrid) {
             Canvas(Modifier.fillMaxSize()) {
                 val cwp = size.width / LayoutStore.COLS
                 val chp = size.height / LayoutStore.ROWS
-                // Čtverečková mřížka 16 × 32: čáry původního dělení 4 × 12 jsou výraznější.
-                for (i in 0..LayoutStore.COLS) drawLine(Color.White.copy(alpha = if (i % 4 == 0) 0.12f else 0.05f), Offset(i * cwp, 0f), Offset(i * cwp, size.height), 1.2f)
-                for (j in 0..LayoutStore.ROWS) drawLine(Color.White.copy(alpha = if (j % 4 == 0) 0.12f else 0.04f), Offset(0f, j * chp), Offset(size.width, j * chp), 1f)
+                // Čtverečková mřížka: každá 3. čára je výraznější (pro snadné počítání).
+                for (i in 0..LayoutStore.COLS) drawLine(Color.White.copy(alpha = if (i % 3 == 0) 0.13f else 0.05f), Offset(i * cwp, 0f), Offset(i * cwp, size.height), 1.2f)
+                for (j in 0..LayoutStore.ROWS) drawLine(Color.White.copy(alpha = if (j % 3 == 0) 0.13f else 0.05f), Offset(0f, j * chp), Offset(size.width, j * chp), 1f)
             }
         }
         if (editing) {

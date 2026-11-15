@@ -22,10 +22,10 @@ enum class WidgetType(
     val title: String,
     val description: String,
     val category: Category,
-    baseW: Int,
-    baseH: Int,
-    baseMinW: Int = 1,
-    baseMinH: Int = 1
+    private val baseW: Int,
+    private val baseH: Int,
+    private val baseMinW: Int = 1,
+    private val baseMinH: Int = 1
 ) {
     MAP("Mapa", "Mapa Mapy.com s polohou auta a naplánovanou trasou", Category.NAVIGATION, 4, 4, 2, 2),
     DIRECTIONS("Navigace", "Další manévr z Mapy.com, cíl a příjezd, rychlé cíle Domů a Práce", Category.NAVIGATION, 2, 3, 2, 2),
@@ -50,11 +50,13 @@ enum class WidgetType(
     PHONE_DIAL("Rychlá volba", "Pět kontaktů v zelených kolečkách se jménem a seznam kontaktů, volání jedním klepnutím", Category.PHONE, 1, 7, 1, 1),
     DOCK("Dok aplikací", "Oblíbené aplikace na jedno klepnutí", Category.MEDIA, 4, 2, 1, 1);
 
-    val w: Int = Grid.col(baseW)
-    val h: Int = Grid.row(baseH)
-    // Nejmenší šířka zůstává fyzicky stejná jako v 8 × 32 (jeden dřívější sloupec = dva nové).
-    val minW: Int = baseMinW * 2
-    val minH: Int = baseMinH * 2
+    // Velikosti se počítají z aktuální mřížky (24 sloupců, řádků podle tvaru plochy).
+    val w: Int get() = Grid.col(baseW)
+    val h: Int get() = Grid.row(baseH)
+    /** Nejmenší šířka: fyzicky stejná jako dřív (minimum zapsané v 8 sloupcích). */
+    val minW: Int get() = (baseMinW * LayoutStore.COLS / 8).coerceAtLeast(1)
+    /** Nejmenší výška: minimum zapsané v 16 řádcích, přepočtené na aktuální mřížku. */
+    val minH: Int get() = (baseMinH * LayoutStore.ROWS / 16).coerceAtLeast(1)
 
     companion object {
         fun of(name: String): WidgetType? = values().firstOrNull { it.name == name }

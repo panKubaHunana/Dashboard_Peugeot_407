@@ -18,6 +18,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
+    <!-- Skrytí lišt rádia systémovým nastavením; oprávnění se přiděluje jen ručně přes ADB (pm grant). -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
     <!-- Aktualizace z GitHubu: stažení nové verze a instalace přes starou. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 

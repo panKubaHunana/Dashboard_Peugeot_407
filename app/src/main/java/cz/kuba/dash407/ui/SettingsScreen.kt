@@ -166,7 +166,46 @@ fun SettingsScreen() {
         Card("Lišty rádia (zkušebně)", "Skryje lišty jednotky, dokud je Dash 407 vpředu, a uvolní tak místo pro widgety. Funguje jen tehdy, když je rádio kreslí jako systémové lišty Androidu. Tahem prstem od horního (dolního) okraje se lišta na chvíli ukáže.") {
             SwitchLine("Skrýt horní lištu (napětí, hlasitost, ikony aplikací)", hideTop) { Prefs.setHideTopBar(it) }
             SwitchLine("Skrýt spodní lištu (klimatizace, hlasitost, Domů)", hideBottom) { Prefs.setHideBottomBar(it) }
+            // Diagnostika: co rádio umí a jestli je přidělené oprávnění přes ADB.
+            val perm = cz.kuba.dash407.data.Bars.hasPermission(context)
+            val sys = cz.kuba.dash407.data.Bars.supported
+            Text(
+                "Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT}) · " +
+                    "systémové skrytí: ${if (sys) "rádio ho podporuje" else "tato verze Androidu ho nemá"} · " +
+                    "oprávnění z ADB: ${if (perm) "ano" else "ne"}" +
+                    (cz.kuba.dash407.data.Bars.current(context)?.let { " · nastaveno: $it" } ?: ""),
+                color = Palette.Muted, fontSize = 13.sp
+            )
+            if (sys && !perm) {
+                Text(
+                    "Když lišty nezmizí: rádio ignoruje běžnou žádost aplikace. Pomůže jednorázové povolení z počítače přes ADB " +
+                        "(postup ti pošle Claude): adb shell pm grant cz.kuba.dash407 android.permission.WRITE_SECURE_SETTINGS",
+                    color = Palette.Amber, fontSize = 13.sp
+                )
+            }
         }
+
+        var phoneInfo by remember { mutableStateOf<String?>(null) }
+        var choosePhone by remember { mutableStateOf(false) }
+        Card("Telefon a kontakty", "Rychlá volba čte kontakty uložené v rádiu. Telefonní seznam z mobilu má rádio jen ve své aplikaci pro Bluetooth – tu otevírá tlačítko Kontakty.") {
+            val apps by cz.kuba.dash407.data.AppsRepo.apps.collectAsState()
+            val pkg = cz.kuba.dash407.data.QuickDial.phoneApp()
+            Text(
+                "Aplikace pro telefon: " + (apps.firstOrNull { it.packageName == pkg }?.label ?: if (pkg.isBlank()) "nevybráno" else pkg),
+                color = Palette.Text, fontSize = 15.sp
+            )
+            phoneInfo?.let { Text(it, color = Palette.Muted, fontSize = 13.sp) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { choosePhone = true }, shape = RoundedCornerShape(16.dp)) { Text("Vybrat aplikaci") }
+                OutlinedButton(onClick = {
+                    val n = cz.kuba.dash407.data.QuickDial.allContacts(context).size
+                    val h = cz.kuba.dash407.data.QuickDial.callHandler(context)
+                    phoneInfo = "Kontakty čitelné v rádiu: $n" + (if (!cz.kuba.dash407.data.QuickDial.canRead(context)) " (chybí povolení Kontakty)" else "") +
+                        " · Volání obslouží: " + (h ?: "žádná aplikace")
+                }, shape = RoundedCornerShape(16.dp)) { Text("Zkontrolovat") }
+            }
+        }
+        if (choosePhone) PhoneAppDialog { choosePhone = false }
 
         Card("Navigace", "Navigace krok za krokem přímo v Dash 407: mapa Mapy.com, trasa a české pokyny z otevřeného routeru Valhalla (OpenStreetMap), hlas z převodu textu na řeč v rádiu. " +
             "Když jednotka nemá českou řeč, nainstaluj „Převod textu na řeč Google“ a v nastavení Androidu zvol češtinu.") {

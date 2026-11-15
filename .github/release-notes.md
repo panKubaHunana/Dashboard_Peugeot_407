@@ -1,3 +1,15 @@
+## Dash 407 – verze 2.11
+
+### Opravy po prvním testu v autě
+- **Mřížka ze skutečných čtverců**: 24 sloupců a počet řádků se dopočítá z tvaru plochy v rádiu. Když se podaří skrýt lišty, mřížka se sama přepočítá a widgety zůstanou na místě.
+- **Domů se všemi šesti widgety** podle vzoru (rychlá volba, rychloměr, jízda, počasí, přehrávač, stav vozu), přizpůsobené skutečnému tvaru obrazovky. Plocha Domů se jednorázově přepíše.
+- **Rychloměr** ukazuje spotřebu, ujeto a dojezd i v nižším widgetu.
+- **Rychlá volba – kontakty**: vlastní výběr kontaktů (rádio nemá aplikaci pro výběr). Tlačítko **Kontakty** otevírá aplikaci telefonu v rádiu; při prvním klepnutí (nebo podržením) si ji vybereš.
+- **Lišty rádia**: nový pokus o skrytí (starší způsob přes příznaky okna) a systémové skrytí, které funguje po jednorázovém povolení z počítače přes ADB.
+- **Nastavení › Telefon a kontakty** a **Lišty rádia**: diagnostika (verze Androidu, oprávnění, počet čitelných kontaktů, která aplikace obslouží volání).
+
+Stáhni `Dash407-2.11.apk` (od 2.7 se nabídne samo).
+
 ## Dash 407 – verze 2.10
 
 ### Novinka ve 2.10 – automatické tankování
@@ -8,7 +20,6 @@
 - Tankování si pamatuje **název stanice a její polohu** (Tankování, Kniha jízd, teplotní mapa, Excel – nový sloupec Čerpací stanice).
 - Zapnutí a vypnutí: Menu › Nastavení › Automatické tankování.
 
-Stáhni `Dash407-2.10.apk` (od 2.7 se nabídne samo).
 
 ## Dash 407 – verze 2.9
 

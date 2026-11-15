@@ -193,7 +193,7 @@ fun PickerPanel() {
                     Modifier.clip(RoundedCornerShape(18.dp)).clickable { addWidget(context, type) }
                 ) {
                     // Živý náhled widgetu; klepnutí kamkoli ho přidá na aktuální plochu.
-                    val ratio = (type.h.toFloat() / LayoutStore.ROWS * 2.4f) / (type.w.toFloat() / LayoutStore.COLS)
+                    val ratio = type.h.toFloat() / type.w.toFloat() // buňky mřížky jsou čtverce
                     val height = (170f * ratio.coerceIn(0.45f, 1.6f)).dp
                     Box(Modifier.fillMaxWidth().height(height)) {
                         WidgetContent(type, null, Modifier.fillMaxSize(), preview = true)

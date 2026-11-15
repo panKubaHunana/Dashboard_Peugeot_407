@@ -95,8 +95,8 @@ fun SpeedGaugeWidget(modifier: Modifier) {
     val car by CarRepo.state.collectAsState()
     WidgetCard(null, modifier, padding = 12.dp, onClick = { UiBus.open(Panel.CAR) }) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val showCar = maxHeight > 230.dp && maxWidth > 160.dp
-            val valueSp = minOf(maxWidth.value / 9f, 30f).coerceAtLeast(16f)
+            val showCar = maxHeight > 170.dp && maxWidth > 160.dp
+            val valueSp = minOf(maxWidth.value / 9f, maxHeight.value / 9f, 30f).coerceAtLeast(15f)
             Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
                 BoxWithConstraints(Modifier.fillMaxWidth().weight(if (showCar) 1.35f else 1f), contentAlignment = Alignment.Center) {
                     val side = minOf(maxWidth, maxHeight)

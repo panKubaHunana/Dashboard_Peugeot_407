@@ -81,6 +81,7 @@ fun QuickDialWidget(modifier: Modifier, preview: Boolean) {
     val slots by QuickDial.slots.collectAsState()
     var pending by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<Int?>(null) }
+    var choosingApp by remember { mutableStateOf(false) }
 
     val askCall = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         pending?.let { QuickDial.call(context, it, granted) }
@@ -151,7 +152,12 @@ fun QuickDialWidget(modifier: Modifier, preview: Boolean) {
                         Name("Kontakty", Palette.Text)
                         Box(
                             Modifier.size(icon).clip(CircleShape).background(Color(0xFFF1F3F6))
-                                .clickable(enabled = !preview) { QuickDial.openContacts(context) },
+                                .combinedClickable(
+                                    enabled = !preview,
+                                    // Kontakty: aplikace pro telefon v rádiu; když žádná nejde otevřít, nabídne se výběr.
+                                    onClick = { if (!QuickDial.openContacts(context)) choosingApp = true },
+                                    onLongClick = { choosingApp = true }
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(Icons.Filled.Contacts, "Seznam kontaktů", tint = look.accent, modifier = Modifier.size(icon * 0.5f))
@@ -178,6 +184,7 @@ fun QuickDialWidget(modifier: Modifier, preview: Boolean) {
         }
     }
     editing?.let { i -> SlotDialog(i, slots.getOrNull(i)) { editing = null } }
+    if (choosingApp) cz.kuba.dash407.ui.PhoneAppDialog { choosingApp = false }
 }
 
 /** Výrazná zelená kolečka kontaktů. */
@@ -194,25 +201,13 @@ private fun SlotDialog(index: Int, current: DialContact?, onClose: () -> Unit) {
     var name by remember { mutableStateOf(current?.name ?: "") }
     var number by remember { mutableStateOf(current?.number ?: "") }
     var note by remember { mutableStateOf<String?>(null) }
-    val pick = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
-        val uri = r.data?.data
-        if (r.resultCode == Activity.RESULT_OK && uri != null) {
-            val c = QuickDial.fromPick(context, uri)
-            if (c != null) { name = c.name; number = c.number; note = null } else note = "Kontakt se nepodařilo přečíst."
-        }
-    }
+    var picking by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onClose,
         title = { Text("Kontakt ${index + 1}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {
-                    try {
-                        pick.launch(Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI))
-                    } catch (e: Exception) {
-                        note = "Rádio nemá aplikaci s kontakty. Zadej jméno a číslo ručně."
-                    }
-                }, shape = RoundedCornerShape(16.dp)) { Text("Vybrat z kontaktů", fontSize = 16.sp) }
+                OutlinedButton(onClick = { picking = true }, shape = RoundedCornerShape(16.dp)) { Text("Vybrat z kontaktů", fontSize = 16.sp) }
                 OutlinedTextField(value = name, onValueChange = { name = it.take(30) }, singleLine = true, label = { Text("Jméno") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(
                     value = number, onValueChange = { number = it.filter { c -> c.isDigit() || c == '+' || c == ' ' }.take(20) },
@@ -235,4 +230,10 @@ private fun SlotDialog(index: Int, current: DialContact?, onClose: () -> Unit) {
             }
         }
     )
+    if (picking) {
+        cz.kuba.dash407.ui.ContactPickerDialog(
+            onPick = { c -> name = c.name; number = c.number; note = null; picking = false },
+            onClose = { picking = false }
+        )
+    }
 }

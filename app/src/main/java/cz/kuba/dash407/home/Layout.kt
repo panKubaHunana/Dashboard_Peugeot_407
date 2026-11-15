@@ -36,7 +36,7 @@ data class Cell(
 
 data class Page(val slot: Slot, val name: String, val enabled: Boolean, val cells: List<Cell>)
 
-/** Převod z původní mřížky 4 × 12 na čtverečkovou 16 × 32 (verze 2.6). */
+/** Převod z původní mřížky 4 × 12 na aktuální čtverečkovou mřížku (24 sloupců, řádků podle plochy). */
 object Grid {
     const val OLD_COLS = 4
     const val OLD_ROWS = 12
@@ -52,10 +52,17 @@ object Grid {
 
 /** Rozložení všech ploch, uložené jako JSON. */
 object LayoutStore {
-    /** 16 sloupců × 32 řádků: buňka je zhruba čtvereček (dřív 8 × 32 = obdélníky na šířku). */
-    const val COLS = 16
-    const val ROWS = 32
+    /** 24 sloupců; počet řádků se dopočítá z tvaru plochy, aby buňky byly čtverce (verze 2.11). */
+    const val COLS = 24
+    private const val ROWS_KEY = "layout_rows"
+    /** Počet řádků mřížky; mění se jen při změně tvaru plochy (např. skryté lišty rádia). */
+    var ROWS by androidx.compose.runtime.mutableIntStateOf(32)
+        private set
     private const val GRID_FLAG = "layout_grid_8x32"
+    /** Rozložení už je ve 24 sloupcích. */
+    private const val COLS24_FLAG = "layout_grid_24cols"
+    /** Domů jednorázově podle vzoru pro skutečný tvar obrazovky (2.11). */
+    private const val HOME_FLAG = "layout_home_v211"
     /** Rozložení už je ve čtverečkové mřížce 16 × 32. */
     private const val SQUARE_FLAG = "layout_grid_16x32"
     private const val KEY = "layout_v1"
@@ -67,10 +74,15 @@ object LayoutStore {
     fun init() {
         if (loaded) return
         loaded = true
+        ROWS = try { Prefs.shared().getInt(ROWS_KEY, 32) } catch (e: Exception) { 32 }
         val raw = try { Prefs.shared().getString(KEY, null) } catch (e: Exception) { null }
         if (raw == null) {
-            // Nová instalace: výchozí rozložení už je ve čtverečkové mřížce.
-            try { Prefs.shared().edit().putBoolean(GRID_FLAG, true).putBoolean(SQUARE_FLAG, true).apply() } catch (e: Exception) { }
+            // Nová instalace: výchozí rozložení už je v aktuální mřížce.
+            _pages.value = defaults()
+            try {
+                Prefs.shared().edit().putBoolean(GRID_FLAG, true).putBoolean(SQUARE_FLAG, true)
+                    .putBoolean(COLS24_FLAG, true).putBoolean(HOME_FLAG, true).apply()
+            } catch (e: Exception) { }
             return
         }
         try {
@@ -96,6 +108,8 @@ object LayoutStore {
             migrateV2()
             migrateGrid()
             migrateSquare()
+            migrate24()
+            migrateHome()
         } catch (e: Exception) {
             _pages.value = defaults()
         }
@@ -135,7 +149,49 @@ object LayoutStore {
         if (Prefs.shared().getBoolean(GRID_FLAG, false)) return
         _pages.value = _pages.value.map { p -> p.copy(cells = p.cells.map { Grid.cell(it) }) }
         save()
-        Prefs.shared().edit().putBoolean(GRID_FLAG, true).putBoolean(SQUARE_FLAG, true).apply()
+        Prefs.shared().edit().putBoolean(GRID_FLAG, true).putBoolean(SQUARE_FLAG, true).putBoolean(COLS24_FLAG, true).apply()
+    }
+
+    /** Jednorázový převod z 16 na 24 sloupců (hrany × 1,5), widgety zůstanou na místě. */
+    private fun migrate24() {
+        if (Prefs.shared().getBoolean(COLS24_FLAG, false)) return
+        _pages.value = _pages.value.map { p -> p.copy(cells = p.cells.map { scaleCols(it, 16) }) }
+        save()
+        Prefs.shared().edit().putBoolean(COLS24_FLAG, true).apply()
+    }
+
+    /** Jednorázově: plocha Domů podle vzoru (všech šest widgetů) pro skutečný tvar obrazovky rádia. */
+    private fun migrateHome() {
+        if (Prefs.shared().getBoolean(HOME_FLAG, false)) return
+        val home = defaults().first { it.slot == Slot.CENTER }
+        _pages.value = _pages.value.map { if (it.slot == Slot.CENTER) it.copy(cells = home.cells) else it }
+        save()
+        Prefs.shared().edit().putBoolean(HOME_FLAG, true).apply()
+    }
+
+    private fun edge(v: Int, from: Int, to: Int): Int = (v * to + from / 2) / from
+
+    private fun scaleCols(c: Cell, from: Int): Cell {
+        val x = edge(c.x, from, COLS)
+        return c.copy(x = x, w = (edge(c.x + c.w, from, COLS) - x).coerceAtLeast(1))
+    }
+
+    private fun scaleRows(c: Cell, from: Int, to: Int): Cell {
+        val y = edge(c.y, from, to)
+        return c.copy(y = y, h = (edge(c.y + c.h, from, to) - y).coerceAtLeast(1))
+    }
+
+    /**
+     * Nový počet řádků podle tvaru plochy: všechny plochy se přepočítají (hrany úměrně),
+     * takže widgety zůstanou na stejném místě a ve stejné velikosti, jen buňky jsou čtverce.
+     */
+    fun setRows(rows: Int) {
+        val old = ROWS
+        if (rows == old || rows < 8) return
+        ROWS = rows
+        _pages.value = _pages.value.map { p -> p.copy(cells = p.cells.map { scaleRows(it, old, rows) }) }
+        save()
+        try { Prefs.shared().edit().putInt(ROWS_KEY, rows).apply() } catch (e: Exception) { }
     }
 
     /** Jednorázový převod z 8 × 32 na 16 × 32: každý sloupec se rozdělí napůl, widgety zůstanou na místě. */
@@ -199,19 +255,19 @@ object LayoutStore {
     // Výchozí rozložení je zapsané v původní mřížce 4 × 12 a převádí se.
     private fun c(type: WidgetType, x: Int, y: Int, w: Int, h: Int) = Grid.cell(Cell(newId(), type.name, x, y, w, h))
 
-    // Widget zapsaný v mřížce 8 × 32 (sloupce se zdvojí na 16 × 32).
-    private fun f(type: WidgetType, x: Int, y: Int, w: Int, h: Int) = Cell(newId(), type.name, x * 2, y, w * 2, h)
+    // Widget zapsaný v mřížce 24 × 21 (tvar plochy rádia s lištami); řádky se přepočítají na aktuální.
+    private fun f(type: WidgetType, x: Int, y: Int, w: Int, h: Int) = scaleRows(Cell(newId(), type.name, x, y, w, h), 21, ROWS)
 
     fun defaults(): List<Page> = listOf(
         Page(
             Slot.CENTER, "Domů", true, listOf(
-                // Rozložení podle vzoru z 15. 11. 2026, zapsané v mřížce 8 × 32.
-                f(WidgetType.SPEED_GAUGE, 1, 0, 3, 8),
-                f(WidgetType.TRIP_COMPUTER, 4, 0, 4, 8),
-                f(WidgetType.PHONE_DIAL, 0, 4, 1, 22),
-                f(WidgetType.WEATHER, 1, 8, 7, 9),
-                f(WidgetType.MEDIA, 1, 17, 7, 6),
-                f(WidgetType.DOORS, 1, 23, 7, 9)
+                // Vzor z 15. 11. 2026 upravený na skutečný tvar plochy rádia (asi 750 × 680 px).
+                f(WidgetType.PHONE_DIAL, 0, 0, 3, 21),
+                f(WidgetType.SPEED_GAUGE, 3, 0, 10, 8),
+                f(WidgetType.TRIP_COMPUTER, 13, 0, 11, 8),
+                f(WidgetType.WEATHER, 3, 8, 13, 7),
+                f(WidgetType.MEDIA, 16, 8, 8, 7),
+                f(WidgetType.DOORS, 3, 15, 21, 6)
             )
         ),
         Page(

@@ -62,6 +62,56 @@ object QuickDial {
 
     fun setMode(m: String) { _mode.value = m; save() }
 
+    private const val KEY_PHONE_APP = "quickdial_phone_app"
+
+    /** Balíček aplikace, která v rádiu obsluhuje telefon přes Bluetooth (seznam kontaktů z mobilu). */
+    fun phoneApp(): String = try { Prefs.shared().getString(KEY_PHONE_APP, "") ?: "" } catch (e: Exception) { "" }
+
+    fun setPhoneApp(pkg: String) {
+        try { Prefs.shared().edit().putString(KEY_PHONE_APP, pkg).apply() } catch (e: Exception) { }
+    }
+
+    /** Aplikace, které vypadají jako telefon / Bluetooth (nabídnou se nahoře ve výběru). */
+    fun phoneCandidates(apps: List<AppEntry>): List<AppEntry> {
+        val keys = listOf("bt", "bluetooth", "phone", "dial", "telefon", "contact", "kontakt", "call", "hands")
+        return apps.filter { a ->
+            val p = a.packageName.lowercase()
+            val l = a.label.lowercase()
+            keys.any { k -> p.contains(k) || l.contains(k) }
+        }
+    }
+
+    /** Všechny kontakty s číslem, které rádio dovolí přečíst (podle abecedy). Volat mimo hlavní vlákno. */
+    fun allContacts(context: Context): List<DialContact> {
+        if (!canRead(context)) return emptyList()
+        val out = ArrayList<DialContact>()
+        val seen = HashSet<String>()
+        try {
+            context.contentResolver.query(
+                Phone.CONTENT_URI, arrayOf(Phone.DISPLAY_NAME, Phone.NUMBER), null, null,
+                Phone.DISPLAY_NAME + " COLLATE LOCALIZED ASC"
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val number = c.getString(1) ?: continue
+                    val name = c.getString(0) ?: number
+                    if (seen.add(name + "|" + number.filter { it.isDigit() })) out.add(DialContact(name, number))
+                }
+            }
+        } catch (e: Exception) {
+            return emptyList()
+        }
+        return out
+    }
+
+    /** Která aplikace v rádiu obslouží volání (pro diagnostiku), nebo null. */
+    fun callHandler(context: Context): String? = try {
+        val i = Intent(Intent.ACTION_CALL, Uri.parse("tel:123"))
+        val r = context.packageManager.resolveActivity(i, 0) ?: context.packageManager.resolveActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:123")), 0)
+        r?.activityInfo?.let { it.loadLabel(context.packageManager).toString() + " (" + it.packageName + ")" }
+    } catch (e: Exception) {
+        null
+    }
+
     fun setSlot(index: Int, contact: DialContact?) {
         if (index !in 0 until SLOTS) return
         _slots.value = _slots.value.toMutableList().also { it[index] = contact }
@@ -113,8 +163,23 @@ object QuickDial {
         null
     }
 
-    /** Otevře aplikaci s kontakty v rádiu. */
-    fun openContacts(context: Context) {
+    /**
+     * Otevře kontakty: zvolenou aplikaci pro telefon (Bluetooth v rádiu), jinak aplikaci kontaktů.
+     * Vrací false, když nic nešlo otevřít – pak se má nabídnout výběr aplikace.
+     */
+    fun openContacts(context: Context): Boolean {
+        val pkg = phoneApp()
+        if (pkg.isNotBlank()) {
+            val launch = context.packageManager.getLaunchIntentForPackage(pkg)
+            if (launch != null) {
+                try {
+                    context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    return true
+                } catch (e: Exception) {
+                    // Zkusí další způsob.
+                }
+            }
+        }
         val tries = listOf(
             Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_CONTACTS),
             Intent(Intent.ACTION_VIEW, ContactsContract.Contacts.CONTENT_URI)
@@ -122,12 +187,12 @@ object QuickDial {
         for (i in tries) {
             try {
                 context.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                return
+                return true
             } catch (e: Exception) {
                 // Zkusí další způsob.
             }
         }
-        Toast.makeText(context, "Rádio nemá aplikaci s kontakty", Toast.LENGTH_LONG).show()
+        return false
     }
 
     fun call(context: Context, number: String, direct: Boolean) {
