@@ -1,30 +1,57 @@
 package cz.kuba.dash407.data
 
+import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import org.json.JSONObject
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlin.math.max
 
-/** Jízda podle GPS: od spuštění nebo od posledního vynulování. */
+/**
+ * Denní kniha jízd podle GPS.
+ *
+ * Údaje jedné jízdy (ujeto, průměr, maximum, začátek, souřadnice) se vynulují, když začne nová jízda.
+ * Denní údaje (čas v pohybu, počet jízd) se vynulují o půlnoci.
+ */
 data class TripStats(
+    /** Začátek jízdy (ms); u nové instalace čas spuštění. */
     val startedAt: Long = System.currentTimeMillis(),
+    /** Ujeto v této jízdě. */
     val distanceM: Double = 0.0,
+    /** Čas v pohybu v této jízdě. */
     val movingMs: Long = 0L,
     val topKmh: Float = 0f,
-    /** Počet jízd: nová jízda začne, když se auto rozjede po stání delším než [Trip.PAUSE_MS]. */
+    /** Počet jízd dnes. */
     val drives: Int = 0,
     /** Kdy se auto naposledy pohybovalo (0 = zatím ne). */
-    val lastMovingAt: Long = 0L
+    val lastMovingAt: Long = 0L,
+    /** Jízda právě probíhá (auto nestojí déle než [Trip.PAUSE_MS]). */
+    val active: Boolean = false,
+    val startLat: Double? = null,
+    val startLon: Double? = null,
+    val endLat: Double? = null,
+    val endLon: Double? = null,
+    /** Den, ke kterému patří denní údaje (LocalDate.toEpochDay). */
+    val day: Long = LocalDate.now().toEpochDay(),
+    /** Čas v pohybu za celý den. */
+    val dayMovingMs: Long = 0L,
+    /** Ujeto za celý den. */
+    val dayDistanceM: Double = 0.0
 ) {
-    /** Průměrná rychlost za dobu, kdy se auto pohybovalo. */
+    /** Průměrná rychlost jízdy za dobu, kdy se auto pohybovalo. */
     val averageKmh: Double
         get() = if (movingMs > 0) distanceM / 1000.0 / (movingMs / 3_600_000.0) else 0.0
 }
 
-/** Palubní počítač z GPS. Ukládá se, takže přežije vypnutí rádia. */
 object Trip {
-    private const val KEY = "trip_v1"
-    /** Stání delší než 5 minut ukončí jízdu; další rozjezd se počítá jako nová jízda. */
+    private const val KEY = "trip_v2"
+    /** Stání delší než 5 minut ukončí jízdu; další rozjezd je nová jízda. */
     const val PAUSE_MS = 5 * 60_000L
+    /** Kratší přejezdy (parkování, popojetí) se do knihy jízd nezapisují. */
+    const val MIN_DRIVE_M = 300.0
+
     private val _state = MutableStateFlow(TripStats())
     val state: StateFlow<TripStats> = _state
 
@@ -33,26 +60,42 @@ object Trip {
     private var loaded = false
 
     @Synchronized
-    fun init() {
+    fun init(context: Context) {
+        DriveLog.init(context)
         if (loaded) return
         loaded = true
-        val raw = try { Prefs.shared().getString(KEY, null) } catch (e: Exception) { null } ?: return
-        val p = raw.split(';')
-        if (p.size >= 4) {
-            _state.value = TripStats(
-                startedAt = p[0].toLongOrNull() ?: System.currentTimeMillis(),
-                distanceM = p[1].toDoubleOrNull() ?: 0.0,
-                movingMs = p[2].toLongOrNull() ?: 0L,
-                topKmh = p[3].toFloatOrNull() ?: 0f,
-                // Starší uložená jízda (verze do 2.5) počet jízd neznala: počítá se jako jedna, pokud už se jelo.
-                drives = p.getOrNull(4)?.toIntOrNull() ?: if ((p[1].toDoubleOrNull() ?: 0.0) > 0.0) 1 else 0,
-                lastMovingAt = p.getOrNull(5)?.toLongOrNull() ?: 0L
-            )
+        val raw = try { Prefs.shared().getString(KEY, null) } catch (e: Exception) { null }
+        if (raw != null) {
+            try {
+                val o = JSONObject(raw)
+                fun d(k: String): Double? = if (o.has(k) && !o.isNull(k)) o.getDouble(k) else null
+                _state.value = TripStats(
+                    startedAt = o.optLong("startedAt", System.currentTimeMillis()),
+                    distanceM = o.optDouble("distanceM", 0.0),
+                    movingMs = o.optLong("movingMs", 0L),
+                    topKmh = o.optDouble("topKmh", 0.0).toFloat(),
+                    drives = o.optInt("drives", 0),
+                    lastMovingAt = o.optLong("lastMovingAt", 0L),
+                    active = o.optBoolean("active", false),
+                    startLat = d("startLat"), startLon = d("startLon"),
+                    endLat = d("endLat"), endLon = d("endLon"),
+                    day = o.optLong("day", LocalDate.now().toEpochDay()),
+                    dayMovingMs = o.optLong("dayMovingMs", 0L),
+                    dayDistanceM = o.optDouble("dayDistanceM", 0.0)
+                )
+            } catch (e: Exception) {
+                // Poškozený záznam: začneme znovu.
+            }
         }
+        // Rádio bylo vypnuté uprostřed jízdy: jízdu uzavřeme k poslednímu pohybu.
+        closeIfIdle(System.currentTimeMillis())
+        rollDay(System.currentTimeMillis())
     }
 
     @Synchronized
     fun onFix(f: Fix) {
+        closeIfIdle(f.time)
+        rollDay(f.time)
         val prev = last
         last = f
         if (prev == null) return
@@ -62,22 +105,33 @@ object Trip {
         val d = Gps.distance(prev.lat, prev.lon, f.lat, f.lon)
         val speed = f.speedKmh ?: (d / dt * 3600.0).toFloat()
         if (speed < 3f || d > 400) return
-        val s = _state.value
-        val newDrive = s.lastMovingAt == 0L || f.time - s.lastMovingAt > PAUSE_MS
+        var s = _state.value
+        if (!s.active) {
+            // Nová jízda: údaje jízdy začínají od nuly, start je poslední poloha před rozjezdem.
+            s = s.copy(
+                startedAt = prev.time, distanceM = 0.0, movingMs = 0L, topKmh = 0f,
+                drives = s.drives + 1, active = true,
+                startLat = prev.lat, startLon = prev.lon
+            )
+            save()
+        }
         _state.value = s.copy(
             distanceM = s.distanceM + d,
             movingMs = s.movingMs + dt,
             topKmh = max(s.topKmh, speed),
-            drives = if (newDrive) s.drives + 1 else s.drives,
-            lastMovingAt = f.time
+            lastMovingAt = f.time,
+            endLat = f.lat, endLon = f.lon,
+            dayMovingMs = s.dayMovingMs + dt,
+            dayDistanceM = s.dayDistanceM + d
         )
         if (f.time - lastSave > 30_000) save()
     }
 
+    /** Ruční ukončení jízdy (podržení widgetu): další rozjezd bude nová jízda. */
     @Synchronized
-    fun reset() {
-        _state.value = TripStats()
-        save()
+    fun endDriveNow() {
+        val s = _state.value
+        if (s.active) finish(s, s.lastMovingAt.takeIf { it > 0 } ?: System.currentTimeMillis())
     }
 
     @Synchronized
@@ -85,9 +139,52 @@ object Trip {
         lastSave = System.currentTimeMillis()
         val s = _state.value
         try {
-            Prefs.shared().edit().putString(KEY, "${s.startedAt};${s.distanceM};${s.movingMs};${s.topKmh};${s.drives};${s.lastMovingAt}").apply()
+            val o = JSONObject()
+                .put("startedAt", s.startedAt).put("distanceM", s.distanceM).put("movingMs", s.movingMs)
+                .put("topKmh", s.topKmh.toDouble()).put("drives", s.drives).put("lastMovingAt", s.lastMovingAt)
+                .put("active", s.active).put("day", s.day).put("dayMovingMs", s.dayMovingMs).put("dayDistanceM", s.dayDistanceM)
+            s.startLat?.let { o.put("startLat", it) }
+            s.startLon?.let { o.put("startLon", it) }
+            s.endLat?.let { o.put("endLat", it) }
+            s.endLon?.let { o.put("endLon", it) }
+            Prefs.shared().edit().putString(KEY, o.toString()).apply()
         } catch (e: Exception) {
             // Úložiště ještě není připravené.
         }
+    }
+
+    private fun closeIfIdle(now: Long) {
+        val s = _state.value
+        if (s.active && s.lastMovingAt > 0 && now - s.lastMovingAt > PAUSE_MS) finish(s, s.lastMovingAt)
+    }
+
+    /** O půlnoci se vynulují denní údaje; probíhající jízda se počítá do nového dne. */
+    private fun rollDay(now: Long) {
+        val today = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay()
+        val s = _state.value
+        if (s.day == today) return
+        _state.value = s.copy(day = today, drives = if (s.active) 1 else 0, dayMovingMs = 0L, dayDistanceM = 0.0)
+        save()
+    }
+
+    /** Uzavře jízdu a zapíše ji do knihy jízd. Údaje ve widgetu zůstanou do další jízdy. */
+    private fun finish(s: TripStats, end: Long) {
+        val keep = s.distanceM >= MIN_DRIVE_M && s.startLat != null && s.endLat != null
+        if (keep) {
+            DriveLog.add(
+                DriveRecord(
+                    id = s.startedAt, start = s.startedAt, end = end,
+                    startLat = s.startLat!!, startLon = s.startLon ?: 0.0,
+                    endLat = s.endLat!!, endLon = s.endLon ?: 0.0,
+                    distanceM = s.distanceM, movingMs = s.movingMs,
+                    avgKmh = s.averageKmh, maxKmh = s.topKmh.toDouble()
+                )
+            )
+        }
+        _state.value = if (keep) s.copy(active = false) else s.copy(
+            // Krátký přejezd se nepočítá: denní počet jízd se vrátí.
+            active = false, drives = (s.drives - 1).coerceAtLeast(0)
+        )
+        save()
     }
 }

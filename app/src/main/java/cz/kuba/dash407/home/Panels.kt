@@ -122,6 +122,7 @@ fun PanelHost() {
             Panel.OBD -> "OBD adaptér"
             Panel.SERVICE -> "Servisní knížka"
             Panel.CARAPPS -> "Zvuk, volant a klimatizace"
+            Panel.LOGBOOK -> "Kniha jízd"
             else -> ""
         }
         PanelHeader(title, onBack = { UiBus.close() })
@@ -136,6 +137,7 @@ fun PanelHost() {
                 Panel.OBD -> ObdScreen()
                 Panel.SERVICE -> ServiceScreen()
                 Panel.CARAPPS -> CarAppsScreen()
+                Panel.LOGBOOK -> cz.kuba.dash407.ui.LogbookScreen()
                 else -> Unit
             }
         }

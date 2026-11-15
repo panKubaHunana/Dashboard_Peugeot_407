@@ -1,3 +1,15 @@
+## Dash 407 – verze 2.8
+
+### Novinky ve 2.8 – Kniha jízd
+- **Widget vpravo nahoře je denní kniha jízd**: Ujeto, Průměr km/h, Maximum km/h a Začátek patří k aktuální jízdě a vynulují se, když začne nová jízda. V pohybu a Počet jízd jsou za dnešek (nulují se o půlnoci).
+- **Jízda** začne rozjezdem a skončí, když auto stojí déle než 5 minut (nebo podržením widgetu › Ukončit). Přejezdy kratší než 300 m se nezapisují.
+- **Kniha jízd** (Menu › Kniha jízd, nebo klepnutím na widget): tabulka jízd s datem, začátkem a koncem, odkud a kam, ujetými km, průměrem a maximem. Filtr Dnes / Týden / Měsíc / Vše a součty za období.
+- **GPS souřadnice startu a cíle** u každé jízdy (podklad pro budoucí mapu pohybu vozidla). Názvy míst se doplní z OpenStreetMap, když je internet.
+- **Detail jízdy**: souřadnice, poznámka (účel jízdy), smazání.
+- **Export do Excelu** (.xlsx): uloží se do Stažené soubory/Dash407 a rovnou se nabídne odeslání. Obsahuje i souřadnice a řádek Celkem.
+
+Stáhni `Dash407-2.8.apk` a nainstaluj ho přes starou verzi (od 2.7 se nabídne samo).
+
 ## Dash 407 – verze 2.7
 
 ### Novinky ve 2.7 – aktualizace přímo v rádiu
@@ -7,7 +19,7 @@
 - **Ruční kontrola**: Menu › Nastavení › Aktualizace › Zkontrolovat teď.
 - Číslo verze v aplikaci teď přesně odpovídá vydání na GitHubu (např. 2.7.23).
 
-Stáhni `Dash407-2.7.apk` a nainstaluj ho přes starou verzi. Další verze už se nabídnou samy.
+Od verze 2.7 se další verze nabízejí samy.
 
 ## Dash 407 – verze 2.6
 

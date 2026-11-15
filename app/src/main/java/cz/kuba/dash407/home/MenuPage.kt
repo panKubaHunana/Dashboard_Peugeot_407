@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LocalGasStation
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
@@ -64,6 +65,7 @@ fun MenuPage(pages: List<Page>) {
         MenuItem(Icons.Filled.Settings, "Nastavení") { UiBus.open(Panel.SETTINGS) },
         MenuItem(Icons.Filled.Search, "Kam jedeme?") { UiBus.open(Panel.DESTINATION) },
         MenuItem(Icons.Filled.LocalGasStation, "Tankování") { UiBus.open(Panel.FUEL) },
+        MenuItem(Icons.Filled.MenuBook, "Kniha jízd") { UiBus.open(Panel.LOGBOOK) },
         MenuItem(Icons.Filled.DirectionsCar, "Auto a signály") { UiBus.open(Panel.CAR) },
         MenuItem(Icons.Filled.Build, "Servisní knížka") { UiBus.open(Panel.SERVICE) },
         MenuItem(Icons.Filled.Tune, "Zvuk, volant, klima") { UiBus.open(Panel.CARAPPS) },

@@ -5,7 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 /** Panely, které se otevírají přes plochy. */
-enum class Panel { APPS, SETTINGS, FUEL, CAR, APPEARANCE, DESTINATION, PICKER, PAGES, OBD, SERVICE, CARAPPS }
+enum class Panel { APPS, SETTINGS, FUEL, CAR, APPEARANCE, DESTINATION, PICKER, PAGES, OBD, SERVICE, CARAPPS, LOGBOOK }
 
 /** Společný stav uživatelského rozhraní, aby ho widgety mohly ovládat. */
 object UiBus {

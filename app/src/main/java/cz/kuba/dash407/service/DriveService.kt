@@ -25,7 +25,7 @@ class DriveService : Service() {
     override fun onCreate() {
         super.onCreate()
         Prefs.init(this)
-        Trip.init()
+        Trip.init(this)
         try {
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.createNotificationChannel(NotificationChannel(CHANNEL, "Jízda", NotificationManager.IMPORTANCE_MIN))

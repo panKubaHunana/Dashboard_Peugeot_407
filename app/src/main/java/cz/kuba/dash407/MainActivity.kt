@@ -53,7 +53,7 @@ class MainActivity : ComponentActivity() {
         Prefs.init(this)
         AppearanceStore.init()
         LayoutStore.init()
-        Trip.init()
+        Trip.init(this)
         Recent.init()
         MapyLogo.init(this)
         cz.kuba.dash407.nav.Tiles.init(this)

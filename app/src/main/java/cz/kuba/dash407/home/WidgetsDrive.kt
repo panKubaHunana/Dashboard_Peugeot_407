@@ -166,7 +166,7 @@ fun TripWidget(modifier: Modifier, preview: Boolean) {
     WidgetCard("Jízda", modifier, action = {
         Text(
             "Vynulovat", color = look.accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = !preview) { Trip.reset() }.padding(horizontal = 4.dp)
+            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = !preview) { Trip.endDriveNow() }.padding(horizontal = 4.dp)
         )
     }) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -214,9 +214,10 @@ private fun TripStats(t: cz.kuba.dash407.data.TripStats, elapsedMs: Long, modifi
 }
 
 /**
- * Jízda: sedm řádků „popisek … hodnota“ přes celou výšku widgetu.
- * Údaje z GPS (ujeto, čas v pohybu, průměr, maximum, začátek, počet jízd) a průměrná spotřeba
- * z auta (Trip 2), když chybí, tak dlouhodobý průměr z tankování. Podržením se jízda vynuluje.
+ * Denní kniha jízd: sedm řádků „popisek … hodnota“ přes celou výšku widgetu.
+ * Ujeto, průměr, maximum a začátek patří k právě probíhající (nebo poslední) jízdě a vynulují se,
+ * když začne nová jízda. Čas v pohybu a počet jízd jsou za dnešek. Klepnutí otevře Knihu jízd,
+ * podržení jízdu ukončí (další rozjezd bude nová jízda).
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -227,10 +228,10 @@ fun TripComputerWidget(modifier: Modifier, preview: Boolean) {
     val stats = FuelLog.stats(refuels)
     var confirm by remember { mutableStateOf(false) }
     val start = DateTimeFormatter.ofPattern("H:mm", Czech).format(Instant.ofEpochMilli(t.startedAt).atZone(ZoneId.systemDefault()))
-    val movingMin = t.movingMs / 60_000
+    val movingMin = t.dayMovingMs / 60_000
     val avgL100 = car.trip2?.avgL100?.toDouble() ?: stats.averageL100
     val rows = listOf(
-        "Ujeto km" to String.format(Czech, "%.0f", t.distanceM / 1000.0),
+        "Ujeto km" to (if (t.distanceM < 10_000) decimal(t.distanceM / 1000.0) else String.format(Czech, "%.0f", t.distanceM / 1000.0)),
         "V pohybu" to String.format(Czech, "%02d:%02d", movingMin / 60, movingMin % 60),
         "Průměr km/h" to t.averageKmh.roundToInt().toString(),
         "Maximum km/h" to t.topKmh.roundToInt().toString(),
@@ -240,7 +241,9 @@ fun TripComputerWidget(modifier: Modifier, preview: Boolean) {
     )
     WidgetCard(null, modifier, padding = 14.dp) {
         BoxWithConstraints(
-            Modifier.fillMaxSize().combinedClickable(enabled = !preview, onClick = {}, onLongClick = { confirm = true })
+            Modifier.fillMaxSize().combinedClickable(
+                enabled = !preview, onClick = { UiBus.open(Panel.LOGBOOK) }, onLongClick = { confirm = true }
+            )
         ) {
             val fs = minOf(maxHeight.value / rows.size * 0.5f, maxWidth.value / 14f, 22f).coerceAtLeast(12f)
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
@@ -256,9 +259,9 @@ fun TripComputerWidget(modifier: Modifier, preview: Boolean) {
     if (confirm) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { confirm = false },
-            title = { Text("Vynulovat jízdu?") },
-            text = { Text("Ujetá vzdálenost, časy, rychlosti a počet jízd začnou znovu od nuly.") },
-            confirmButton = { androidx.compose.material3.TextButton(onClick = { Trip.reset(); confirm = false }) { Text("Vynulovat") } },
+            title = { Text("Ukončit jízdu?") },
+            text = { Text("Jízda se zapíše do Knihy jízd. Při dalším rozjezdu začne nová jízda a ujeto, průměr, maximum a začátek se vynulují.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { Trip.endDriveNow(); confirm = false }) { Text("Ukončit") } },
             dismissButton = { androidx.compose.material3.TextButton(onClick = { confirm = false }) { Text("Zrušit") } }
         )
     }
