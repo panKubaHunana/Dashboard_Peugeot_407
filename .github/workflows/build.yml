@@ -62,11 +62,6 @@ jobs:
             git push
           fi
 
-      - name: Sestavení
-        env:
-          VERSION_CODE: ${{ github.run_number }}
-        run: gradle :app:assembleDebug --stacktrace
-
       # Verze se bere z versionName v app/build.gradle.kts (např. 2.0).
       # Když vydání s touto verzí už existuje, přidá se číslo sestavení (2.0.57).
       - name: Verze
@@ -78,6 +73,12 @@ jobs:
           if gh release view "v$VERSION" >/dev/null 2>&1; then VERSION="$VERSION.${{ github.run_number }}"; fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "Verze: $VERSION"
+
+      - name: Sestavení
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: ${{ env.VERSION }}
+        run: gradle :app:assembleDebug --stacktrace
 
       - name: Přejmenování APK
         run: cp app/build/outputs/apk/debug/app-debug.apk "Dash407-$VERSION.apk"

@@ -1,3 +1,14 @@
+## Dash 407 – verze 2.7
+
+### Novinky ve 2.7 – aktualizace přímo v rádiu
+- **Kontrola aktualizací při každém spuštění**: Dash 407 se podívá na GitHub. Když je tam novější verze, nabídne ji okno s novinkami a tlačítkem **Stáhnout a nainstalovat**. Postup stahování ukazuje lišta s procenty, pak se rovnou spustí instalace.
+- **Povolení instalace**: při první aktualizaci rádio může chtít povolit „Instalovat neznámé aplikace“ pro Dash 407. Tlačítko otevře správné nastavení; po návratu stahování pokračuje samo.
+- **Novinky po aktualizaci**: po prvním spuštění nové verze se ukáže okno „Co je nového“.
+- **Ruční kontrola**: Menu › Nastavení › Aktualizace › Zkontrolovat teď.
+- Číslo verze v aplikaci teď přesně odpovídá vydání na GitHubu (např. 2.7.23).
+
+Stáhni `Dash407-2.7.apk` a nainstaluj ho přes starou verzi. Další verze už se nabídnou samy.
+
 ## Dash 407 – verze 2.6
 
 ### Novinky ve 2.6 – nový vzhled widgetů podle vzoru

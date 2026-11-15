@@ -141,6 +141,8 @@ private fun AppRoot() {
     Box(Modifier.fillMaxSize()) {
         HomeRoot()
         PanelHost()
+        // Aktualizace z GitHubu a novinky po aktualizaci – až po úvodní animaci.
+        if (!intro && !IntroState.preview) cz.kuba.dash407.ui.UpdateDialogs()
         if (intro || IntroState.preview) {
             IntroOverlay {
                 IntroState.playedThisProcess = true

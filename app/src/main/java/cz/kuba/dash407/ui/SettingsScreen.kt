@@ -288,6 +288,12 @@ fun SettingsScreen() {
             }
         }
 
+        SettingCard(
+            "Aktualizace",
+            "Dash 407 se při každém spuštění podívá na GitHub. Když je tam novější verze, nabídne její stažení a rovnou ji nainstaluje; po aktualizaci ukáže novinky. Nainstalováno: ${BuildConfig.VERSION_NAME}.",
+            "Zkontrolovat teď"
+        ) { cz.kuba.dash407.data.Updater.check(context, manual = true) }
+
         Surface(shape = RoundedCornerShape(24.dp), color = Palette.Tile, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(20.dp)) {
                 Text(stringResource(R.string.settings_about_title), color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
