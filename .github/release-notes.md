@@ -1,3 +1,9 @@
+## Dash 407 – verze 2.14
+
+- Rychlost: barva podle překročení rychlosti v obci, mimo obec a na dálnici
+
+Stáhni `Dash407-2.14.apk` (nabídne se samo).
+
 ## Dash 407 – verze 2.13
 
 - Navigace: mapa se už nesmyslně neotáčí
