@@ -216,7 +216,7 @@ fun MediaWidget(modifier: Modifier, preview: Boolean) {
         val art = m.art
         if (art != null) {
             Image(art, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.25f), Color.Black.copy(alpha = 0.7f)))))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.35f), Color.Black.copy(alpha = 0.8f)))))
         } else {
             Box(
                 Modifier.fillMaxSize().background(
@@ -235,7 +235,8 @@ fun MediaWidget(modifier: Modifier, preview: Boolean) {
                 }
                 .padding(horizontal = 22.dp, vertical = 12.dp)
         ) {
-            val big = minOf(maxHeight * 0.36f, 76.dp).coerceAtLeast(40.dp)
+            // 2.13: tři tlačítka se vejdou vedle sebe i v úzkém widgetu (velké + 2 × 0,86 = 2,72 × velké + 2 mezery 8 dp).
+            val big = minOf(maxHeight * 0.36f, 76.dp, (maxWidth - 16.dp) / 2.72f).coerceAtLeast(32.dp)
             val small = big * 0.86f
             val titleSp = minOf(maxHeight.value * 0.13f, 32f).coerceAtLeast(16f)
             Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -247,11 +248,11 @@ fun MediaWidget(modifier: Modifier, preview: Boolean) {
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.MusicNote, null, tint = Color.White, modifier = Modifier.size((titleSp * 1.1f).dp))
-                    Text(title, color = Color.White, fontSize = titleSp.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(title, color = Color.White, fontSize = titleSp.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleShadow)
                 }
                 val artist = m.artist
                 if (m.hasSession && !artist.isNullOrBlank()) {
-                    Text(artist, color = Color.White.copy(alpha = 0.8f), fontSize = (titleSp * 0.65f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(artist, color = Color.White.copy(alpha = 0.85f), fontSize = (titleSp * 0.65f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TitleShadow)
                 }
                 Spacer(Modifier.weight(0.5f))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -271,6 +272,11 @@ fun MediaWidget(modifier: Modifier, preview: Boolean) {
         }
     }
 }
+
+/** 2.13: stín pod názvem skladby, aby byl čitelný i přes světlý obal alba. */
+private val TitleShadow = androidx.compose.ui.text.TextStyle(
+    shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.8f), androidx.compose.ui.geometry.Offset(0f, 2f), 6f)
+)
 
 @Composable
 fun DockWidget(modifier: Modifier, preview: Boolean) {

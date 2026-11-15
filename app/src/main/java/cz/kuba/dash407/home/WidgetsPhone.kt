@@ -160,7 +160,7 @@ fun QuickDialWidget(modifier: Modifier, preview: Boolean) {
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Filled.Contacts, "Seznam kontaktů", tint = look.accent, modifier = Modifier.size(icon * 0.5f))
+                            Icon(Icons.Filled.Contacts, "Seznam kontaktů", tint = Color(0xFF1E88E5), modifier = Modifier.size(icon * 0.5f))
                         }
                     }
                 }

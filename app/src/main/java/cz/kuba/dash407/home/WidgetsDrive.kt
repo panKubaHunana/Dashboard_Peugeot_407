@@ -73,14 +73,57 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+/**
+ * Navigace (dřív Rychlost): uprostřed velká rychlost z GPS, v rozích okamžitá spotřeba a dojezd z auta
+ * a při navigaci příjezd do cíle a zbývající km (hodnoty v barvě zvýraznění).
+ * U nízkého widgetu zůstane jen rychlost.
+ */
 @Composable
 fun SpeedWidget(modifier: Modifier) {
+    val look = LocalLook.current
     val speed by Gps.speedKmh.collectAsState()
-    WidgetCard("Rychlost", modifier) {
-        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            FitText(speed?.toString() ?: DASH, Modifier.fillMaxWidth().weight(1f), weight = FontWeight.Bold, maxSp = 160f, widthPerChar = 0.62f)
-            Text("km/h · GPS", color = Palette.Muted, fontSize = 14.sp)
+    val car by CarRepo.state.collectAsState()
+    val nav by cz.kuba.dash407.nav.NavEngine.state.collectAsState()
+    // now jen vyvolá překreslení, aby se čas příjezdu průběžně přepočítával.
+    val now by rememberNow()
+    WidgetCard(null, modifier, padding = 10.dp) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val showRows = maxHeight > 150.dp && maxWidth > 150.dp
+            val labelSp = minOf(maxWidth.value / 17f, maxHeight.value / 11.5f, 18f).coerceAtLeast(12f)
+            val valueSp = labelSp * 1.4f
+            val navOn = nav.active && nav.route != null
+            val arrival = if (navOn) now.plusSeconds(nav.remainingS.toLong()).format(DateTimeFormatter.ofPattern("H:mm", Czech)) else DASH
+            val leftKm = if (navOn) nav.remainingM.let { if (it < 10_000) decimal(it / 1000.0) else String.format(Czech, "%.0f", it / 1000.0) } else DASH
+            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (showRows) {
+                    Row(Modifier.fillMaxWidth()) {
+                        SpeedReading("okamž. spotřeba", car.instantL100?.let { decimal(it) + " l" } ?: "$DASH l", labelSp, valueSp, look.accent, Modifier.weight(1f))
+                        SpeedReading(
+                            "dojezd km", car.rangeKm?.toString() ?: DASH, labelSp, valueSp,
+                            if ((car.rangeKm ?: 999) < 80) Palette.Amber else look.accent, Modifier.weight(1f)
+                        )
+                    }
+                }
+                FitText(speed?.toString() ?: DASH, Modifier.fillMaxWidth().weight(1f), weight = FontWeight.Bold, maxSp = 160f, widthPerChar = 0.62f)
+                if (showRows) {
+                    Row(Modifier.fillMaxWidth()) {
+                        SpeedReading("příjezd do cíle", arrival, labelSp, valueSp, look.accent, Modifier.weight(1f))
+                        SpeedReading("zbývá km", leftKm, labelSp, valueSp, look.accent, Modifier.weight(1f))
+                    }
+                } else {
+                    Text("km/h", color = Palette.Muted, fontSize = 12.sp)
+                }
+            }
         }
+    }
+}
+
+/** Popisek (bílý) a pod ním hodnota v barvě zvýraznění, na střed – rohy widgetu Navigace. */
+@Composable
+private fun SpeedReading(label: String, value: String, labelSp: Float, valueSp: Float, color: Color, modifier: Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, color = Palette.Text, fontSize = labelSp.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, color = color, fontSize = valueSp.sp, maxLines = 1)
     }
 }
 

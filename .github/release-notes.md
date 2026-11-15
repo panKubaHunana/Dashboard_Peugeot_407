@@ -1,3 +1,11 @@
+## Dash 407 – verze 2.13
+
+- Navigace: mapa se už nesmyslně neotáčí
+- Navigace: nové tlačítko kompas – sever nahoře / mapa ve směru jízdy
+- Navigace: nový widget s rychlostí, spotřebou, dojezdem, příjezdem do cíle a zbývajícími km (dřív Rychlost)
+
+Stáhni `Dash407-2.13.apk` (nabídne se samo).
+
 ## Dash 407 – verze 2.12
 
 ### Oprava

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Work
@@ -150,6 +151,21 @@ fun MapView(modifier: Modifier, zoomIn: Int) {
     val filter = if (look.darkMap && !src.dark && MapSources.of(look.mapStyle).night == null) nightFilter else null
     val style = src.id
     val accent = look.accent
+    // Při navigaci se mapa otáčí po směru jízdy (přepínač na mapě a v Nastavení).
+    // Směr je stabilní (GPS jen od 8 km/h, jinak poslední dobrý nebo směr trasy) a otáčí se plynule nejkratší cestou.
+    val navOn = nav.active && nav.route != null
+    val goal = if (navOn && headingUp) cz.kuba.dash407.nav.Heading.forMap(fix, nav)?.let { -it } ?: 0f else 0f
+    // Šipka auta: stejný stabilní směr jako mapa (při stání nesmyslný směr z GPS nebere).
+    val arrowBearing = (if (navOn) cz.kuba.dash407.nav.Heading.forMap(fix, nav) else null)
+        ?: cz.kuba.dash407.nav.Heading.stable(fix) ?: fix?.bearing
+    var unwrapped by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    androidx.compose.runtime.LaunchedEffect(goal) {
+        val d = (((goal - unwrapped) % 360f) + 540f) % 360f - 180f
+        unwrapped += d
+    }
+    val rotationAnim by androidx.compose.animation.core.animateFloatAsState(
+        unwrapped, androidx.compose.animation.core.tween(700), label = "mapRotation"
+    )
     Canvas(modifier.background(if (look.darkMap) Color(0xFF1B2430) else Color(0xFFE8E4DA))) {
         if (version < 0) return@Canvas // čtení verze: po načtení dlaždice se mapa překreslí
         val f = fix
@@ -164,8 +180,7 @@ fun MapView(modifier: Modifier, zoomIn: Int) {
         val left = cx - size.width / 2.0
         val top = cy - ay
         val pivot = Offset(size.width / 2f, ay)
-        // Při navigaci se mapa otáčí po směru jízdy (lze vypnout v Nastavení).
-        val rotation = if (navigating && headingUp && f?.bearing != null) -(f?.bearing ?: 0f) else 0f
+        val rotation = rotationAnim
         rotate(rotation, pivot) {
             if (hasKey) {
                 val reach = if (rotation != 0f) kotlin.math.hypot(size.width.toDouble(), size.height.toDouble()) else 0.0
@@ -220,7 +235,8 @@ fun MapView(modifier: Modifier, zoomIn: Int) {
         // Auto: šipka natočená podle směru jízdy (při otáčení mapy míří vždy nahoru).
         if (f != null) {
             val s = 16.dp.toPx()
-            rotate(if (rotation != 0f) 0f else (f.bearing ?: 0f), pivot) {
+            // Šipka míří po stabilním směru jízdy; při natočené mapě tedy nahoru.
+            rotate((arrowBearing ?: 0f) + rotation, pivot) {
                 val arrow = Path().apply {
                     moveTo(pivot.x, pivot.y - s)
                     lineTo(pivot.x + s * 0.75f, pivot.y + s * 0.8f)
@@ -380,6 +396,7 @@ fun MapWidget(modifier: Modifier, preview: Boolean) {
     val progress by RouteState.progress.collectAsState()
     val nav by NavEngine.state.collectAsState()
     val voice by Prefs.navVoice.collectAsState()
+    val headingUpMap by Prefs.navHeadingUp.collectAsState()
     val error by Tiles.error.collectAsState()
     val fix by Gps.fix.collectAsState()
     var zoom by rememberSaveable { mutableIntStateOf(15) }
@@ -468,6 +485,12 @@ fun MapWidget(modifier: Modifier, preview: Boolean) {
                 RoundButton(if (voice) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff, "Hlas", size = 46.dp) {
                     if (!preview) Prefs.setNavVoice(!voice)
                 }
+                // Sever nahoře / mapa po směru jízdy – rychlé přepnutí přímo na mapě.
+                RoundButton(
+                    if (headingUpMap) Icons.Filled.Navigation else Icons.Filled.Explore,
+                    if (headingUpMap) "Mapa po směru jízdy – klepni pro sever nahoře" else "Sever nahoře – klepni pro směr jízdy",
+                    size = 46.dp
+                ) { if (!preview) Prefs.setNavHeadingUp(!headingUpMap) }
             }
         }
         Row(
