@@ -1,3 +1,12 @@
+## Dash 407 – verze 2.13
+
+### Úpravy podle sandboxu
+- **Přehrávač**: tlačítka předchozí – přehrát – další se zmenší podle šířky widgetu, takže se vejdou vedle sebe i v úzkém přehrávači.
+- **Přehrávač**: tmavší přechod přes obal alba a stín pod názvem skladby – text je čitelný i přes světlý obrázek.
+- **Rychlá volba**: ikona Kontaktů má pevnou modrou barvu (nemění se s barvou zvýraznění).
+
+Stáhni `Dash407-2.13.apk` (nabídne se samo).
+
 ## Dash 407 – verze 2.12
 
 ### Oprava
