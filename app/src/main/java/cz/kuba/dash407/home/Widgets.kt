@@ -14,14 +14,18 @@ enum class Category(val label: String) {
 }
 
 /** Všechny widgety, které jdou dát na plochu, s výchozí a nejmenší velikostí v mřížce 4 × 12. */
+/**
+ * Velikosti jsou zapsané v původní mřížce 4 × 12; skutečné hodnoty v jemné mřížce 8 × 32
+ * se dopočítají (šířka × 2, výška × 32/12). Minimum je jemnější, aby šly widgety víc zmenšit.
+ */
 enum class WidgetType(
     val title: String,
     val description: String,
     val category: Category,
-    val w: Int,
-    val h: Int,
-    val minW: Int = 1,
-    val minH: Int = 1
+    baseW: Int,
+    baseH: Int,
+    baseMinW: Int = 1,
+    baseMinH: Int = 1
 ) {
     MAP("Mapa", "Mapa Mapy.com s polohou auta a naplánovanou trasou", Category.NAVIGATION, 4, 4, 2, 2),
     DIRECTIONS("Navigace", "Další manévr z Mapy.com, cíl a příjezd, rychlé cíle Domů a Práce", Category.NAVIGATION, 2, 3, 2, 2),
@@ -45,6 +49,11 @@ enum class WidgetType(
     MEDIA("Právě hraje", "Skladba, obal alba a ovládání přehrávání", Category.MEDIA, 2, 3, 2, 2),
     PHONE_DIAL("Rychlá volba", "Pět tvých kontaktů a seznam kontaktů ve sloupci, volání jedním klepnutím", Category.PHONE, 1, 7, 1, 1),
     DOCK("Dok aplikací", "Oblíbené aplikace na jedno klepnutí", Category.MEDIA, 4, 2, 1, 1);
+
+    val w: Int = Grid.col(baseW)
+    val h: Int = Grid.row(baseH)
+    val minW: Int = baseMinW
+    val minH: Int = baseMinH * 2
 
     companion object {
         fun of(name: String): WidgetType? = values().firstOrNull { it.name == name }

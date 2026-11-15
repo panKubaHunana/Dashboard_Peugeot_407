@@ -36,10 +36,25 @@ data class Cell(
 
 data class Page(val slot: Slot, val name: String, val enabled: Boolean, val cells: List<Cell>)
 
+/** Převod z původní mřížky 4 × 12 na jemnou 8 × 32 (verze 2.5). */
+object Grid {
+    const val OLD_COLS = 4
+    const val OLD_ROWS = 12
+    fun col(v: Int): Int = v * LayoutStore.COLS / OLD_COLS
+    /** Hrana řádku: zaokrouhlení zachová, že se sousední widgety nepřekrývají ani nevznikají mezery. */
+    fun row(v: Int): Int = (v * LayoutStore.ROWS + OLD_ROWS / 2) / OLD_ROWS
+    fun cell(c: Cell): Cell {
+        val y = row(c.y)
+        val x = col(c.x)
+        return c.copy(x = x, y = y, w = (col(c.x + c.w) - x).coerceAtLeast(1), h = (row(c.y + c.h) - y).coerceAtLeast(1))
+    }
+}
+
 /** Rozložení všech ploch, uložené jako JSON. */
 object LayoutStore {
-    const val COLS = 4
-    const val ROWS = 12
+    const val COLS = 8
+    const val ROWS = 32
+    private const val GRID_FLAG = "layout_grid_8x32"
     private const val KEY = "layout_v1"
 
     private val _pages = MutableStateFlow(defaults())
@@ -49,7 +64,12 @@ object LayoutStore {
     fun init() {
         if (loaded) return
         loaded = true
-        val raw = try { Prefs.shared().getString(KEY, null) } catch (e: Exception) { null } ?: return
+        val raw = try { Prefs.shared().getString(KEY, null) } catch (e: Exception) { null }
+        if (raw == null) {
+            // Nová instalace: výchozí rozložení už je v jemné mřížce.
+            try { Prefs.shared().edit().putBoolean(GRID_FLAG, true).apply() } catch (e: Exception) { }
+            return
+        }
         try {
             val a = JSONArray(raw)
             val list = ArrayList<Page>()
@@ -71,6 +91,7 @@ object LayoutStore {
             val merged = defaults().map { d -> list.firstOrNull { it.slot == d.slot } ?: d }
             _pages.value = merged.map { if (it.slot == Slot.CENTER) it.copy(enabled = true) else it }
             migrateV2()
+            migrateGrid()
         } catch (e: Exception) {
             _pages.value = defaults()
         }
@@ -103,6 +124,14 @@ object LayoutStore {
         }
         save()
         Prefs.shared().edit().putBoolean(flag, true).apply()
+    }
+
+    /** Jednorázový převod uloženého rozložení z mřížky 4 × 12 na 8 × 32. */
+    private fun migrateGrid() {
+        if (Prefs.shared().getBoolean(GRID_FLAG, false)) return
+        _pages.value = _pages.value.map { p -> p.copy(cells = p.cells.map { Grid.cell(it) }) }
+        save()
+        Prefs.shared().edit().putBoolean(GRID_FLAG, true).apply()
     }
 
     private fun save() {
@@ -155,7 +184,8 @@ object LayoutStore {
     private var counter = 0
     fun newId(): String = "w" + System.currentTimeMillis().toString(36) + (counter++)
 
-    private fun c(type: WidgetType, x: Int, y: Int, w: Int, h: Int) = Cell(newId(), type.name, x, y, w, h)
+    // Výchozí rozložení je zapsané v původní mřížce 4 × 12 a převádí se.
+    private fun c(type: WidgetType, x: Int, y: Int, w: Int, h: Int) = Grid.cell(Cell(newId(), type.name, x, y, w, h))
 
     fun defaults(): List<Page> = listOf(
         Page(

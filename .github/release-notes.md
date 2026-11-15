@@ -1,9 +1,12 @@
-## Dash 407 – verze 2.4
+## Dash 407 – verze 2.5
+
+### Novinka ve 2.5
+- **Jemnější mřížka ploch 8 × 32** (dřív 4 × 12): widgety jdou umístit a zmenšit mnohem přesněji. Stávající rozložení se při prvním spuštění samo převede, nic se neztratí ani nepřekryje. V režimu úprav jsou výraznější čáry původního dělení, slabší ty nové.
+
+Stáhni `Dash407-2.5.apk` a nainstaluj ho přes starou verzi.
 
 ### Novinka ve 2.4
 - **Skrytí lišt rádia (zkušebně)**: Menu › Nastavení › Lišty rádia. Zvlášť jde skrýt horní lišta (napětí, hlasitost, ikony) a spodní lišta (klimatizace). Tahem od okraje obrazovky se lišta na chvíli ukáže. Funguje jen, pokud je jednotka kreslí jako systémové lišty Androidu.
-
-Stáhni `Dash407-2.4.apk` a nainstaluj ho přes starou verzi.
 
 ### Novinka ve 2.3
 - **Rychlá volba svisle**: když je widget úzký a vysoký (třeba 1 × 7), kontakty jsou pod sebou ve sloupci, kolečka těsně u sebe a jméno hned nad kolečkem. Široký widget zůstává v řadě, čtvercový jako mřížka 3 × 2. Nově přidaný widget má výchozí velikost 1 × 7.
