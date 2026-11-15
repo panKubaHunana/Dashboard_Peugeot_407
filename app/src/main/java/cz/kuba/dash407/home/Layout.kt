@@ -65,6 +65,8 @@ object LayoutStore {
     private const val COLS24_FLAG = "layout_grid_24cols"
     /** Domů jednorázově podle vzoru pro skutečný tvar obrazovky (2.11). */
     private const val HOME_FLAG = "layout_home_v211"
+    /** Všechny plochy jednorázově podle Kubova rozložení ze sandboxu (2.13). */
+    private const val ALL_FLAG = "layout_all_v213"
     /** Rozložení už je ve čtverečkové mřížce 16 × 32. */
     private const val SQUARE_FLAG = "layout_grid_16x32"
     private const val KEY = "layout_v1"
@@ -83,7 +85,7 @@ object LayoutStore {
             _pages.value = defaults()
             try {
                 Prefs.shared().edit().putBoolean(GRID_FLAG, true).putBoolean(SQUARE_FLAG, true)
-                    .putBoolean(COLS24_FLAG, true).putBoolean(HOME_FLAG, true).apply()
+                    .putBoolean(COLS24_FLAG, true).putBoolean(HOME_FLAG, true).putBoolean(ALL_FLAG, true).apply()
             } catch (e: Exception) { }
             return
         }
@@ -112,6 +114,7 @@ object LayoutStore {
             migrateSquare()
             migrate24()
             migrateHome()
+            migrateAll213()
         } catch (e: Exception) {
             _pages.value = defaults()
         }
@@ -163,6 +166,15 @@ object LayoutStore {
     }
 
     /** Jednorázově: plocha Domů podle vzoru (všech šest widgetů) pro skutečný tvar obrazovky rádia. */
+    /** Jednorázově: všech pět ploch podle rozložení ze sandboxu (názvy a zapnutí ploch zůstanou). */
+    private fun migrateAll213() {
+        if (Prefs.shared().getBoolean(ALL_FLAG, false)) return
+        val d = defaults()
+        _pages.value = _pages.value.map { p -> d.firstOrNull { it.slot == p.slot }?.let { p.copy(cells = it.cells) } ?: p }
+        save()
+        Prefs.shared().edit().putBoolean(ALL_FLAG, true).apply()
+    }
+
     private fun migrateHome() {
         if (Prefs.shared().getBoolean(HOME_FLAG, false)) return
         val home = defaults().first { it.slot == Slot.CENTER }
@@ -260,54 +272,48 @@ object LayoutStore {
     // Widget zapsaný v mřížce 24 × 21 (tvar plochy rádia s lištami); řádky se přepočítají na aktuální.
     private fun f(type: WidgetType, x: Int, y: Int, w: Int, h: Int) = scaleRows(Cell(newId(), type.name, x, y, w, h), 21, ROWS)
 
+    // Rozložení všech ploch podle Kubových obrázků ze sandboxu (15. 11. 2026), mřížka 24 × 21.
     fun defaults(): List<Page> = listOf(
         Page(
             Slot.CENTER, "Domů", true, listOf(
-                // Vzor z 15. 11. 2026 upravený na skutečný tvar plochy rádia (asi 750 × 680 px).
                 f(WidgetType.PHONE_DIAL, 0, 0, 3, 21),
-                f(WidgetType.SPEED_GAUGE, 3, 0, 10, 8),
-                f(WidgetType.TRIP_COMPUTER, 13, 0, 11, 8),
-                f(WidgetType.WEATHER, 3, 8, 13, 7),
-                f(WidgetType.MEDIA, 16, 8, 8, 7),
-                f(WidgetType.DOORS, 3, 15, 21, 6)
+                f(WidgetType.SPEED_GAUGE, 3, 0, 10, 12),
+                f(WidgetType.TRIP_COMPUTER, 13, 0, 11, 12),
+                f(WidgetType.DOORS, 3, 12, 13, 9),
+                f(WidgetType.MEDIA, 16, 12, 8, 9)
             )
         ),
         Page(
             Slot.UP, "Mapa", true, listOf(
-                c(WidgetType.MAP, 0, 0, 4, 10),
-                c(WidgetType.DIRECTIONS, 0, 10, 2, 2),
-                c(WidgetType.SPEED_LIMIT, 2, 10, 1, 2),
-                c(WidgetType.SPEED, 3, 10, 1, 2)
+                f(WidgetType.MAP, 0, 0, 24, 14),
+                f(WidgetType.SPEED, 0, 14, 12, 7),
+                f(WidgetType.MEDIA, 12, 14, 12, 7)
             )
         ),
         Page(
             Slot.LEFT, "Auto", true, listOf(
-                c(WidgetType.TRIP_COMPUTER, 0, 0, 2, 4),
-                c(WidgetType.SPEED_GAUGE, 2, 0, 2, 4),
-                c(WidgetType.DOORS, 0, 4, 2, 4),
-                c(WidgetType.VOLTAGE, 2, 4, 2, 2),
-                c(WidgetType.FUEL, 2, 6, 2, 2),
-                c(WidgetType.CLOCK, 0, 8, 4, 2),
-                c(WidgetType.DOCK, 0, 10, 4, 2)
+                f(WidgetType.CLOCK, 0, 0, 24, 3),
+                f(WidgetType.TRIP_COMPUTER, 0, 3, 12, 9),
+                f(WidgetType.DOORS, 12, 3, 12, 9),
+                f(WidgetType.SERVICE, 0, 12, 12, 6),
+                f(WidgetType.FUEL, 12, 12, 12, 6),
+                f(WidgetType.CAR_APPS, 0, 18, 24, 3)
             )
         ),
         Page(
             Slot.RIGHT, "Hudba", true, listOf(
-                c(WidgetType.MEDIA, 0, 0, 4, 6),
-                c(WidgetType.CLOCK, 0, 6, 4, 3),
-                c(WidgetType.WEATHER, 0, 9, 2, 3),
-                c(WidgetType.DIRECTIONS, 2, 9, 2, 3)
+                f(WidgetType.MEDIA, 0, 0, 24, 14),
+                f(WidgetType.SPEED_GAUGE, 0, 14, 12, 7),
+                f(WidgetType.CLOCK, 12, 14, 12, 7)
             )
         ),
         Page(
             Slot.DOWN, "Jízda", true, listOf(
-                c(WidgetType.SPEED, 0, 0, 2, 3),
-                c(WidgetType.COMPASS, 2, 0, 2, 3),
-                c(WidgetType.GPS, 0, 3, 2, 3),
-                c(WidgetType.GFORCE, 2, 3, 2, 3),
-                c(WidgetType.PERF, 0, 6, 4, 3),
-                c(WidgetType.SPEED_LIMIT, 0, 9, 2, 3),
-                c(WidgetType.PHONE_DIAL, 2, 9, 2, 3)
+                f(WidgetType.PERF, 0, 0, 24, 5),
+                f(WidgetType.GPS, 0, 5, 12, 7),
+                f(WidgetType.VOLTAGE, 12, 5, 12, 7),
+                f(WidgetType.DOORS, 0, 12, 12, 9),
+                f(WidgetType.TRIP_COMPUTER, 12, 12, 12, 9)
             )
         )
     )
