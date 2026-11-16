@@ -73,7 +73,7 @@ fun SettingsScreen() {
     val demo by Prefs.demo.collectAsState()
     val gpsAllowed by Gps.allowed.collectAsState()
     val media by NowPlaying.state.collectAsState()
-    val mapyKey by Prefs.mapyKey.collectAsState()
+    val mapyKey by Prefs.mapyKeyOwn.collectAsState()
     val home by Prefs.homeAddress.collectAsState()
     val work by Prefs.workAddress.collectAsState()
     val split by Prefs.splitScreen.collectAsState()
@@ -125,7 +125,8 @@ fun SettingsScreen() {
         ) { UiBus.open(Panel.SERVICE) }
 
         Card("Mapy.com", "Mapa v rádiu, hledání míst a plánování trasy používají REST API Mapy.com. " +
-            "Bezplatný API klíč získáš na developer.mapy.com (Můj účet › API klíče). Klíč zůstává jen v rádiu. " +
+            (if (Prefs.hasBuiltInMapyKey) "Aplikace má výchozí klíč z GitHub Secrets; pole nech prázdné, nebo sem zadej vlastní klíč (má přednost). "
+            else "Bezplatný API klíč získáš na developer.mapy.com (Můj účet › API klíče). ") +
             "Hlasová navigace běží v aplikaci Mapy.com a klíč nepotřebuje.") {
             OutlinedTextField(
                 value = keyText, onValueChange = { keyText = it.trim() }, singleLine = true,
@@ -144,7 +145,7 @@ fun SettingsScreen() {
                     Prefs.setMapyKey(keyText)
                     Tiles.clear()
                     keyResult = "Ověřuji…"
-                    scope.launch { keyResult = withContext(Dispatchers.IO) { Tiles.test(keyText) } }
+                    scope.launch { keyResult = withContext(Dispatchers.IO) { Tiles.test(Prefs.mapyKey.value) } }
                 }, shape = RoundedCornerShape(16.dp)) { Text("Uložit a ověřit", fontSize = 16.sp) }
                 OutlinedButton(onClick = { Mapy.openWeb(context, "https://developer.mapy.com/") }, shape = RoundedCornerShape(16.dp)) {
                     Text("Získat klíč", fontSize = 16.sp)
@@ -259,7 +260,7 @@ fun SettingsScreen() {
         }
 
         Card("Otevřené mapy", "OpenStreetMap a OpenTopoMap fungují bez klíče a zdarma. Bez klíče Mapy.com se cíle hledají v otevřených datech OpenStreetMap " +
-            "(Nominatim) a trasa i pokyny jdou z otevřeného routeru Valhalla. Dlaždice se pamatují 7 dní, jak žádají pravidla OpenStreetMap.") {
+            "(Nominatim) a trasa i pokyny jdou z otevřeného routeru Valhalla. Dlaždice se pamatují na disku (aspoň 7 dní, jak žádají pravidla OpenStreetMap) a bez internetu se použijí i starší.") {
             Text("Podklad přepneš ve Vzhledu (✦) › Mapa.", color = Palette.Text, fontSize = 15.sp)
         }
 
@@ -331,6 +332,10 @@ fun SettingsScreen() {
                 )
             }
         }
+
+        StatusCard()
+        BackupCard()
+        CrashCard()
 
         SettingCard(
             "Aktualizace",

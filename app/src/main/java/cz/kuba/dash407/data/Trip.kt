@@ -1,6 +1,8 @@
 package cz.kuba.dash407.data
 
 import android.content.Context
+import cz.kuba.dash407.car.CanOdometer
+import cz.kuba.dash407.car.Engine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONObject
@@ -10,15 +12,15 @@ import java.time.ZoneId
 import kotlin.math.max
 
 /**
- * Denní kniha jízd podle GPS.
+ * Denní kniha jízd.
  *
  * Údaje jedné jízdy (ujeto, průměr, maximum, začátek, souřadnice) se vynulují, když začne nová jízda.
  * Denní údaje (čas v pohybu, počet jízd) se vynulují o půlnoci.
  */
 data class TripStats(
-    /** Začátek jízdy (ms); u nové instalace čas spuštění. */
+    /** Začátek jízdy (ms) = start motoru; u nové instalace čas spuštění. */
     val startedAt: Long = System.currentTimeMillis(),
-    /** Ujeto v této jízdě. */
+    /** Ujeto v této jízdě (GPS). */
     val distanceM: Double = 0.0,
     /** Čas v pohybu v této jízdě. */
     val movingMs: Long = 0L,
@@ -27,7 +29,9 @@ data class TripStats(
     val drives: Int = 0,
     /** Kdy se auto naposledy pohybovalo (0 = zatím ne). */
     val lastMovingAt: Long = 0L,
-    /** Jízda právě probíhá (auto nestojí déle než [Trip.PAUSE_MS]). */
+    /** Kdy přišla poslední poloha z GPS během jízdy. */
+    val lastFixAt: Long = 0L,
+    /** Jízda právě probíhá (motor běží). */
     val active: Boolean = false,
     val startLat: Double? = null,
     val startLon: Double? = null,
@@ -41,20 +45,28 @@ data class TripStats(
     val dayDistanceM: Double = 0.0,
     /** Celkem ujeto podle GPS od instalace (nikdy se nenuluje; podklad pro odhad tachometru). */
     val totalM: Double = 0.0,
-    /** Odhad tachometru na začátku jízdy. */
-    val odoStart: Int? = null
+    /** Stav tachometru na začátku jízdy (z CAN boxu, nebo odhad). */
+    val odoStart: Int? = null,
+    /** Stav na začátku přišel přímo z CAN boxu. */
+    val odoFromCan: Boolean = false
 ) {
     /** Průměrná rychlost jízdy za dobu, kdy se auto pohybovalo. */
     val averageKmh: Double
         get() = if (movingMs > 0) distanceM / 1000.0 / (movingMs / 3_600_000.0) else 0.0
 }
 
+/**
+ * Jízda = od startu motoru do stopu motoru (viz [Engine]). Mezi jízdami nemusí být žádná pauza:
+ * nový start motoru hned zakládá novou jízdu. Kratší jízdy než [MIN_DRIVE_M] se nezapisují.
+ */
 object Trip {
     private const val KEY = "trip_v2"
-    /** Stání delší než 5 minut ukončí jízdu; další rozjezd je nová jízda. */
-    const val PAUSE_MS = 5 * 60_000L
-    /** Kratší přejezdy (parkování, popojetí) se do knihy jízd nezapisují. */
-    const val MIN_DRIVE_M = 300.0
+    /** Kratší přejezdy (popojetí na parkovišti, nastartování na místě) se do knihy jízd nezapisují. */
+    const val MIN_DRIVE_M = 100.0
+    /** Když aplikace spadne a hned naběhne, rozjetá jízda pokračuje, pokud poslední poloha není starší. */
+    private const val RESUME_MS = 3 * 60_000L
+    /** Poloha před startem motoru se použije jako start, když není starší než 2 minuty. */
+    private const val START_FIX_MS = 2 * 60_000L
 
     private val _state = MutableStateFlow(TripStats())
     val state: StateFlow<TripStats> = _state
@@ -83,6 +95,7 @@ object Trip {
                     topKmh = o.optDouble("topKmh", 0.0).toFloat(),
                     drives = o.optInt("drives", 0),
                     lastMovingAt = o.optLong("lastMovingAt", 0L),
+                    lastFixAt = o.optLong("lastFixAt", o.optLong("lastMovingAt", 0L)),
                     active = o.optBoolean("active", false),
                     startLat = d("startLat"), startLon = d("startLon"),
                     endLat = d("endLat"), endLon = d("endLon"),
@@ -90,44 +103,84 @@ object Trip {
                     dayMovingMs = o.optLong("dayMovingMs", 0L),
                     dayDistanceM = o.optDouble("dayDistanceM", 0.0),
                     totalM = o.optDouble("totalM", 0.0),
-                    odoStart = if (o.has("odoStart")) o.getInt("odoStart") else null
+                    odoStart = if (o.has("odoStart")) o.getInt("odoStart") else null,
+                    odoFromCan = o.optBoolean("odoFromCan", false)
                 )
             } catch (e: Exception) {
                 // Poškozený záznam: začneme znovu.
             }
         }
-        // Rádio bylo vypnuté uprostřed jízdy: jízdu uzavřeme k poslednímu pohybu.
-        closeIfIdle(System.currentTimeMillis())
-        rollDay(System.currentTimeMillis())
+        // Rádio se vypnulo bez zprávy (nebo aplikace spadla): starou jízdu uzavřeme k poslední poloze.
+        // Když aplikace jen rychle naběhla znovu, jízda pokračuje.
+        val s = _state.value
+        val now = System.currentTimeMillis()
+        if (s.active) {
+            val lastSeen = max(s.lastFixAt, s.startedAt)
+            if (now - lastSeen > RESUME_MS) finish(s, lastSeen)
+        }
+        rollDay(now)
+    }
+
+    /** Start nebo stop motoru (z [Engine]). */
+    @Synchronized
+    fun onEngine(running: Boolean, at: Long) {
+        if (!loaded) return
+        rollDay(at)
+        val s = _state.value
+        if (running) {
+            if (!s.active) begin(s, at)
+        } else if (s.active) {
+            finish(s, at)
+        }
+    }
+
+    private fun begin(s: TripStats, at: Long) {
+        val p = last?.takeIf { at - it.time <= START_FIX_MS && (it.accuracy ?: 0f) <= 60f }
+        val can = CanOdometer.fresh()
+        _state.value = s.copy(
+            startedAt = at, distanceM = 0.0, movingMs = 0L, topKmh = 0f,
+            drives = s.drives + 1, active = true, lastMovingAt = 0L, lastFixAt = p?.time ?: 0L,
+            startLat = p?.lat, startLon = p?.lon, endLat = p?.lat, endLon = p?.lon,
+            odoStart = can ?: Odometer.km(), odoFromCan = can != null
+        )
+        if (p != null) {
+            DriveTracks.start(p.lat, p.lon)
+            trackLat = p.lat
+            trackLon = p.lon
+        } else {
+            trackLat = null
+            trackLon = null
+        }
+        save()
     }
 
     @Synchronized
     fun onFix(f: Fix) {
-        closeIfIdle(f.time)
         rollDay(f.time)
         val prev = last
         last = f
+        var s = _state.value
+        if (!s.active) return
+        if ((f.accuracy ?: 0f) > 40f) return
+        if (s.startLat == null) {
+            // Motor běží, ale poloha přišla až teď: tady jízda začíná.
+            s = s.copy(startLat = f.lat, startLon = f.lon, endLat = f.lat, endLon = f.lon, lastFixAt = f.time)
+            _state.value = s
+            DriveTracks.start(f.lat, f.lon)
+            trackLat = f.lat
+            trackLon = f.lon
+            save()
+            return
+        }
+        s = s.copy(lastFixAt = f.time)
+        _state.value = s
         if (prev == null) return
         val dt = f.time - prev.time
         if (dt <= 0 || dt > 10_000) return
-        if ((f.accuracy ?: 0f) > 40f) return
         val d = Gps.distance(prev.lat, prev.lon, f.lat, f.lon)
         val speed = f.speedKmh ?: (d / dt * 3600.0).toFloat()
+        // Stání na místě (GPS se chvěje) se do vzdálenosti nepočítá.
         if (speed < 3f || d > 400) return
-        var s = _state.value
-        if (!s.active) {
-            // Nová jízda: údaje jízdy začínají od nuly, start je poslední poloha před rozjezdem.
-            s = s.copy(
-                startedAt = prev.time, distanceM = 0.0, movingMs = 0L, topKmh = 0f,
-                drives = s.drives + 1, active = true,
-                startLat = prev.lat, startLon = prev.lon,
-                odoStart = Odometer.km()
-            )
-            DriveTracks.start(prev.lat, prev.lon)
-            trackLat = prev.lat
-            trackLon = prev.lon
-            save()
-        }
         // Skutečná trasa: bod zhruba po 40 m.
         val tl = trackLat
         val tn = trackLon
@@ -149,11 +202,13 @@ object Trip {
         if (f.time - lastSave > 30_000) save()
     }
 
-    /** Ruční ukončení jízdy (podržení widgetu): další rozjezd bude nová jízda. */
+    /** Ruční ukončení jízdy (podržení widgetu). Když motor dál běží, hned začne nová jízda. */
     @Synchronized
     fun endDriveNow() {
         val s = _state.value
-        if (s.active) finish(s, s.lastMovingAt.takeIf { it > 0 } ?: System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        if (s.active) finish(s, now)
+        if (Engine.state.value.running) begin(_state.value, now)
     }
 
     @Synchronized
@@ -164,7 +219,9 @@ object Trip {
             val o = JSONObject()
                 .put("startedAt", s.startedAt).put("distanceM", s.distanceM).put("movingMs", s.movingMs)
                 .put("topKmh", s.topKmh.toDouble()).put("drives", s.drives).put("lastMovingAt", s.lastMovingAt)
-                .put("active", s.active).put("day", s.day).put("dayMovingMs", s.dayMovingMs).put("dayDistanceM", s.dayDistanceM).put("totalM", s.totalM)
+                .put("lastFixAt", s.lastFixAt).put("active", s.active).put("day", s.day)
+                .put("dayMovingMs", s.dayMovingMs).put("dayDistanceM", s.dayDistanceM).put("totalM", s.totalM)
+                .put("odoFromCan", s.odoFromCan)
             s.startLat?.let { o.put("startLat", it) }
             s.startLon?.let { o.put("startLon", it) }
             s.endLat?.let { o.put("endLat", it) }
@@ -174,11 +231,6 @@ object Trip {
         } catch (e: Exception) {
             // Úložiště ještě není připravené.
         }
-    }
-
-    private fun closeIfIdle(now: Long) {
-        val s = _state.value
-        if (s.active && s.lastMovingAt > 0 && now - s.lastMovingAt > PAUSE_MS) finish(s, s.lastMovingAt)
     }
 
     /** O půlnoci se vynulují denní údaje; probíhající jízda se počítá do nového dne. */
@@ -192,7 +244,16 @@ object Trip {
 
     /** Uzavře jízdu a zapíše ji do knihy jízd. Údaje ve widgetu zůstanou do další jízdy. */
     private fun finish(s: TripStats, end: Long) {
-        val keep = s.distanceM >= MIN_DRIVE_M && s.startLat != null && s.endLat != null
+        val canEnd = CanOdometer.fresh()
+        val odoEnd = when {
+            canEnd != null -> canEnd
+            s.odoStart != null -> (s.odoStart + s.distanceM / 1000.0).toInt()
+            else -> Odometer.km()
+        }
+        // S tachometrem z CAN boxu na obou koncích se ujeto ověří i podle něj (třeba při výpadku GPS v tunelu).
+        val canKm = if (s.odoFromCan && canEnd != null && s.odoStart != null) (canEnd - s.odoStart).coerceAtLeast(0) else null
+        val distance = max(s.distanceM, (canKm ?: 0) * 1000.0)
+        val keep = distance >= MIN_DRIVE_M && s.startLat != null && s.endLat != null
         if (keep) {
             DriveTracks.finish(s.startedAt)
             DriveLog.add(
@@ -200,10 +261,10 @@ object Trip {
                     id = s.startedAt, start = s.startedAt, end = end,
                     startLat = s.startLat!!, startLon = s.startLon ?: 0.0,
                     endLat = s.endLat!!, endLon = s.endLon ?: 0.0,
-                    distanceM = s.distanceM, movingMs = s.movingMs,
+                    distanceM = distance, movingMs = s.movingMs,
                     avgKmh = s.averageKmh, maxKmh = s.topKmh.toDouble(),
                     odoStart = s.odoStart,
-                    odoEnd = s.odoStart?.let { (it + s.distanceM / 1000.0).toInt() } ?: Odometer.km()
+                    odoEnd = odoEnd
                 )
             )
         } else {

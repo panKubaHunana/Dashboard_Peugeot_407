@@ -111,6 +111,9 @@ object DriveLog {
         }
     }
 
+    /** Znovu zkusit doplnit názvy míst (po připojení k internetu). */
+    fun retryPlaces() = fillPlaces()
+
     /** Doplní názvy míst (Nominatim, nejvýš jeden dotaz za sekundu). */
     private fun fillPlaces() {
         if (geocoding) return
@@ -120,7 +123,11 @@ object DriveLog {
                 for (r in _entries.value.filter { it.from == null || it.to == null }.take(40)) {
                     val from = r.from ?: place(r.startLat, r.startLon).also { delay(1100) }
                     val to = r.to ?: place(r.endLat, r.endLon).also { delay(1100) }
-                    if (from == null && to == null) break // bez internetu – zkusí se příště
+                    if (from == null && to == null) {
+                        // Bez internetu: počká se ve frontě, až se rádio připojí.
+                        NetQueue.add(NetQueue.Job("places"))
+                        break
+                    }
                     val current = _entries.value.firstOrNull { it.id == r.id } ?: continue
                     update(current.copy(from = current.from ?: from, to = current.to ?: to))
                 }

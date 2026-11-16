@@ -260,7 +260,7 @@ private fun TripStats(t: cz.kuba.dash407.data.TripStats, elapsedMs: Long, modifi
  * Denní kniha jízd: sedm řádků „popisek … hodnota“ přes celou výšku widgetu.
  * Ujeto, průměr, maximum a začátek patří k právě probíhající (nebo poslední) jízdě a vynulují se,
  * když začne nová jízda. Čas v pohybu a počet jízd jsou za dnešek. Klepnutí otevře Knihu jízd,
- * podržení jízdu ukončí (další rozjezd bude nová jízda).
+ * podržení jízdu ukončí (když motor běží, hned začne nová).
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -303,7 +303,7 @@ fun TripComputerWidget(modifier: Modifier, preview: Boolean) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { confirm = false },
             title = { Text("Ukončit jízdu?") },
-            text = { Text("Jízda se zapíše do Knihy jízd. Při dalším rozjezdu začne nová jízda a ujeto, průměr, maximum a začátek se vynulují.") },
+            text = { Text("Jízda se zapíše do Knihy jízd a hned začne nová: ujeto, průměr, maximum a začátek se vynulují. Jinak jízda končí sama vypnutím motoru.") },
             confirmButton = { androidx.compose.material3.TextButton(onClick = { Trip.endDriveNow(); confirm = false }) { Text("Ukončit") } },
             dismissButton = { androidx.compose.material3.TextButton(onClick = { confirm = false }) { Text("Zrušit") } }
         )

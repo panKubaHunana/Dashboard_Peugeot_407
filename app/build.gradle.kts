@@ -18,10 +18,15 @@ android {
         minSdk = 29
         targetSdk = 34
         versionCode = ciVersion
-        versionName = "2.13"
+        versionName = "3.0"
         // GitHub Actions dodá přesné označení vydání (např. 2.7 nebo 2.7.23),
         // aby aplikace při kontrole aktualizací poznala, kterou verzi má.
         System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }?.let { versionName = it }
+        // Výchozí API klíč Mapy.com z GitHub Secrets (MAPY_API_KEY). V kódu repozitáře není.
+        // Klíč zadaný v Nastavení rádia má přednost.
+        val mapyKey = (System.getenv("MAPY_API_KEY") ?: "").trim().replace("\"", "")
+        buildConfigField("String", "MAPY_KEY", "\"$mapyKey\"")
+        buildConfigField("String", "REPO", "\"panKubaHunana/Dashboard_Peugeot_407\"")
     }
 
     signingConfigs {
@@ -37,6 +42,14 @@ android {
 
     buildTypes {
         debug {
+            if (sharedKeystore.exists()) signingConfig = signingConfigs.getByName("shared")
+        }
+        // Ostré sestavení (od 3.0): R8 vyhodí nepoužitý kód a zdroje, APK je výrazně menší a rychleji startuje.
+        // Podpis je stejný jako u dřívějších ladicích verzí, takže se 3.0 nainstaluje přes 2.x a data zůstanou.
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (sharedKeystore.exists()) signingConfig = signingConfigs.getByName("shared")
         }
     }

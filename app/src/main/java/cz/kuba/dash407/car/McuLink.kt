@@ -154,7 +154,23 @@ object McuLink {
     /** Požádá CAN box o stránky palubního počítače a o výstrahy. */
     fun askTripPages() {
         worker.post {
-            for (type in intArrayOf(RZC_TRIP_NOW, RZC_TRIP_1, RZC_TRIP_2, RZC_WARNINGS)) {
+            val types = intArrayOf(RZC_TRIP_NOW, RZC_TRIP_1, RZC_TRIP_2, RZC_WARNINGS).toMutableList()
+            // Naučený tachometr: zeptat se i na jeho rámec (kdyby ho CAN box sám neposílal).
+            CanOdometer.field.value?.type?.let { if (it !in types && it in 0x30..0x3F) types.add(it) }
+            for (type in types) {
+                if (!send(SEND_TO_CAN, Rzc.question(type))) return@post
+                Thread.sleep(40)
+            }
+        }
+    }
+
+    /**
+     * Požádá CAN box o všechny stránky 0x30–0x3F (jen čtecí dotaz 0x8F). Používá se při hledání
+     * tachometru: některé údaje CAN box posílá, až když se na ně aplikace zeptá.
+     */
+    fun askAllPages() {
+        worker.post {
+            for (type in 0x30..0x3F) {
                 if (!send(SEND_TO_CAN, Rzc.question(type))) return@post
                 Thread.sleep(40)
             }

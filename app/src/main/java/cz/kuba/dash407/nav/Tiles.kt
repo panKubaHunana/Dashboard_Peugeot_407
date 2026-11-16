@@ -20,6 +20,7 @@ import java.io.File
 /** Načítání mapových dlaždic (Mapy.com, OpenStreetMap, OpenTopoMap, Google) s pamětí v RAM a pro otevřené mapy i na disku. */
 object Tiles {
     private const val DISK_DAYS = 7L
+    private const val DISK_MAX_MB = 400L
     // Paměť podle velikosti (kB): dlaždice @2x mají 512 × 512 px, tedy asi 1 MB.
     private val cache = object : LruCache<String, ImageBitmap>(96 * 1024) {
         override fun sizeOf(key: String, value: ImageBitmap): Int = (value.width * value.height * 4 / 1024).coerceAtLeast(1)
@@ -38,7 +39,25 @@ object Tiles {
     val error: StateFlow<String?> = _error
 
     fun init(context: Context) {
-        if (diskDir == null) diskDir = File(context.applicationContext.cacheDir, "tiles")
+        if (diskDir != null) return
+        val dir = File(context.applicationContext.cacheDir, "tiles")
+        diskDir = dir
+        scope.launch { trim(dir) }
+    }
+
+    /** Mezipaměť dlaždic na disku drží nejvýš [DISK_MAX_MB] MB; nejdéle nepoužité se smažou. */
+    private fun trim(dir: File) {
+        try {
+            val files = dir.walkTopDown().filter { it.isFile }.toList()
+            var total = files.sumOf { it.length() }
+            val max = DISK_MAX_MB * 1024L * 1024L
+            if (total <= max) return
+            for (f in files.sortedBy { it.lastModified() }) {
+                total -= f.length()
+                f.delete()
+                if (total <= max * 8 / 10) break
+            }
+        } catch (e: Exception) { }
     }
 
     private fun diskFile(source: String, z: Int, x: Int, y: Int): File? =
@@ -61,19 +80,26 @@ object Tiles {
             limit.withPermit {
                 try {
                     val file = if (src.diskCache) diskFile(source, z, xx, y) else null
-                    val fresh = file != null && file.exists() &&
+                    val stored = file != null && file.exists()
+                    val fresh = stored && file != null &&
                         System.currentTimeMillis() - file.lastModified() < DISK_DAYS * 86_400_000L
-                    val bytes: ByteArray = if (fresh && file != null) file.readBytes() else {
-                        val b = Net.getBytes(MapSources.url(source, z, xx, y), 12_000)
-                        if (file != null) {
-                            try {
-                                file.parentFile?.mkdirs()
-                                file.writeBytes(b)
-                            } catch (e: Exception) {
-                                // Disk plný: dlaždice zůstane jen v paměti.
+                    // Bez internetu se použije i starší dlaždice z disku – mapa zůstane vidět.
+                    val offline = !cz.kuba.dash407.data.NetQueue.online.value
+                    val bytes: ByteArray = if ((fresh || (offline && stored)) && file != null) file.readBytes() else {
+                        try {
+                            val b = Net.getBytes(MapSources.url(source, z, xx, y), 12_000)
+                            if (file != null) {
+                                try {
+                                    file.parentFile?.mkdirs()
+                                    file.writeBytes(b)
+                                } catch (e: Exception) {
+                                    // Disk plný: dlaždice zůstane jen v paměti.
+                                }
                             }
+                            b
+                        } catch (e: Exception) {
+                            if (stored && file != null && !(e is HttpError && (e.code == 401 || e.code == 403))) file.readBytes() else throw e
                         }
-                        b
                     }
                     val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                     if (bmp != null) cache.put(id, bmp.asImageBitmap())
@@ -103,6 +129,13 @@ object Tiles {
         val n = 1 shl z
         val xx = ((x % n) + n) % n
         return cache.get("$source/$z/$xx/$y")
+    }
+
+    /** Po připojení k internetu: dlaždice, které se nenačetly, zkusit hned znovu. */
+    fun retryFailed() {
+        synchronized(loading) { failed.clear() }
+        _error.value = null
+        _version.value = _version.value + 1
     }
 
     fun clear() {

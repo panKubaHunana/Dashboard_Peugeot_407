@@ -54,6 +54,8 @@ class MainActivity : ComponentActivity() {
         AppearanceStore.init()
         LayoutStore.init()
         Trip.init(this)
+        // Start a stop motoru (OBD / zapnuté rádio) zakládá a uzavírá jízdy v Knize jízd.
+        cz.kuba.dash407.car.Engine.init(this)
         Recent.init()
         MapyLogo.init(this)
         cz.kuba.dash407.nav.Tiles.init(this)
@@ -81,11 +83,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        cz.kuba.dash407.car.Engine.onAcc(true)
         Gps.start(this)
         DriveService.start(this)
         NowPlaying.refresh(this)
         cz.kuba.dash407.car.Obd.autoStart(this)
         AppsRepo.reload(this)
+        // Jednou denně automatická záloha (Stažené soubory, případně Google Disk).
+        cz.kuba.dash407.data.Backup.autoIfDue(this)
         // Palubní počítač odpovídá jen na dotaz: ptáme se, dokud je aplikace vidět.
         poll = scope.launch {
             while (isActive) {
@@ -158,6 +163,8 @@ private fun AppRoot() {
         if (!intro && !IntroState.preview) cz.kuba.dash407.ui.UpdateDialogs()
         // Automatické tankování: nabídka zápisu, když auto stojí u pumpy.
         if (!intro && !IntroState.preview) cz.kuba.dash407.ui.FuelPromptDialog()
+        // Minule aplikace spadla: nabídka odeslání hlášení.
+        if (!intro && !IntroState.preview) cz.kuba.dash407.ui.CrashDialog()
         if (intro || IntroState.preview) {
             IntroOverlay {
                 IntroState.playedThisProcess = true

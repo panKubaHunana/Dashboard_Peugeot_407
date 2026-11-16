@@ -26,6 +26,7 @@ class DriveService : Service() {
         super.onCreate()
         Prefs.init(this)
         Trip.init(this)
+        cz.kuba.dash407.car.Engine.init(this)
         try {
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.createNotificationChannel(NotificationChannel(CHANNEL, "Jízda", NotificationManager.IMPORTANCE_MIN))

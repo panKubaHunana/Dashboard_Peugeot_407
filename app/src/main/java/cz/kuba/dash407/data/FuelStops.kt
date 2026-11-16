@@ -133,8 +133,44 @@ object FuelStops {
         waitForMove = true
     }
 
+    // --- Známé stanice: pamatují se, aby automatické tankování fungovalo i bez internetu -----
+
+    private const val KEY_KNOWN = "fuel_stations_v1"
+    private const val KNOWN_MAX = 800
+    private var known: Map<String, Station>? = null
+
+    private fun known(): Map<String, Station> {
+        known?.let { return it }
+        val m = LinkedHashMap<String, Station>()
+        try {
+            val raw = Prefs.shared().getString(KEY_KNOWN, null)
+            if (raw != null) {
+                val a = org.json.JSONArray(raw)
+                for (i in 0 until a.length()) {
+                    val o = a.getJSONObject(i)
+                    m[o.getString("id")] = Station(o.getString("id"), o.getString("name"), o.getDouble("lat"), o.getDouble("lon"))
+                }
+            }
+        } catch (e: Exception) { }
+        known = m
+        return m
+    }
+
+    private fun remember(list: List<Station>) {
+        val m = LinkedHashMap(known())
+        for (st in list) { m.remove(st.id); m[st.id] = st }
+        while (m.size > KNOWN_MAX) m.remove(m.keys.first())
+        known = m
+        try {
+            val a = org.json.JSONArray()
+            for (st in m.values) a.put(JSONObject().put("id", st.id).put("name", st.name).put("lat", st.lat).put("lon", st.lon))
+            Prefs.shared().edit().putString(KEY_KNOWN, a.toString()).apply()
+        } catch (e: Exception) { }
+    }
+
     private fun nearest(lat: Double, lon: Double): Station? =
-        stations.map { it to Gps.distance(lat, lon, it.lat, it.lon) }
+        (stations + known().values.filter { k -> stations.none { it.id == k.id } })
+            .map { it to Gps.distance(lat, lon, it.lat, it.lon) }
             .filter { it.second <= NEAR_M }
             .minByOrNull { it.second }?.first
 
@@ -142,6 +178,8 @@ object FuelStops {
         if (loading) return
         if (areaLoaded && Gps.distance(lat, lon, areaLat, areaLon) < AREA_M - 1000) return
         if (System.currentTimeMillis() - lastFailAt < 120_000L) return
+        // Bez internetu se použijí stanice známé z dřívějška.
+        if (!NetQueue.online.value) return
         loading = true
         scope.launch {
             try {
@@ -164,6 +202,7 @@ object FuelStops {
                     list.add(Station(e.optString("type") + e.optLong("id"), if (place != null) "$brand, $place" else brand, la, lo))
                 }
                 synchronized(this@FuelStops) {
+                    remember(list)
                     stations = list
                     areaLat = lat
                     areaLon = lon

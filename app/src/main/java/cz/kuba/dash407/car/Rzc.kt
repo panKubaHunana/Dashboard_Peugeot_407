@@ -59,6 +59,8 @@ object Rzc {
 
     /** Promítne jeden rámec do stavu auta. */
     fun decode(type: Int, d: ByteArray) {
+        // Každý rámec si pamatuje hledání tachometru (a čte ho, když už je naučený).
+        CanOdometer.onFrame(type, d)
         when (type) {
             RZC_TRIP_NOW -> if (d.size >= 4) {
                 val instant = word(d, 0)
