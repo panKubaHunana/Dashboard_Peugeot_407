@@ -8,9 +8,27 @@ class HttpError(val code: Int, val body: String? = null) : Exception("HTTP $code
 
 /** Jednoduché síťové požadavky bez knihoven. Volat jen mimo hlavní vlákno. */
 object Net {
-    private const val AGENT = "Dash407/0.2 (Android; Peugeot 407 head unit)"
+    /** Pravidla OpenStreetMap (Nominatim, Overpass, dlaždice) chtějí, aby se aplikace představila. */
+    private val AGENT = "Dash407/" + cz.kuba.dash407.BuildConfig.VERSION_NAME +
+        " (Android; Peugeot 407 head unit; +https://github.com/" + cz.kuba.dash407.BuildConfig.REPO + ")"
+
+    /** Nominatim povoluje nejvýš jeden dotaz za sekundu – hlídá se tady pro celou aplikaci. */
+    private const val NOMINATIM = "nominatim.openstreetmap.org"
+    private const val NOMINATIM_GAP_MS = 1_100L
+    private var nominatimAt = 0L
+    private val nominatimLock = Any()
+
+    private fun throttle(url: String) {
+        if (!url.contains(NOMINATIM)) return
+        synchronized(nominatimLock) {
+            val wait = nominatimAt + NOMINATIM_GAP_MS - System.currentTimeMillis()
+            if (wait > 0) Thread.sleep(wait)
+            nominatimAt = System.currentTimeMillis()
+        }
+    }
 
     fun getBytes(url: String, timeoutMs: Int = 10_000): ByteArray {
+        throttle(url)
         val c = URL(url).openConnection() as HttpURLConnection
         try {
             c.connectTimeout = timeoutMs

@@ -213,10 +213,11 @@ private fun androidx.compose.foundation.layout.ColumnScope.DrivesTab(
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Tachometr ≈ ${odo(Odometer.km())} km", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Text((if (cz.kuba.dash407.car.CanOdometer.fresh() != null) "Tachometr " else "Tachometr ≈ ") + "${odo(Odometer.km())} km", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                     val ref = odoRef
                     Text(
                         if (ref == null) "Zadej stav tachometru, nebo zapiš tankování – pak se počítá sám."
+                        else if (cz.kuba.dash407.car.CanOdometer.fresh() != null) "Přímo z CAN boxu"
                         else "Podle: ${ref.source} ${DateTimeFormatter.ofPattern("d. M. yyyy", Czech).format(local(ref.at))} (${odo(ref.km)} km) + km z GPS",
                         color = Palette.Muted, fontSize = 13.sp
                     )
@@ -229,7 +230,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.DrivesTab(
         Surface(shape = RoundedCornerShape(16.dp), color = Palette.Good.copy(alpha = 0.15f), modifier = Modifier.fillMaxWidth()) {
             Text(
                 "Právě probíhá jízda od ${TIME.format(local(t.startedAt))} · ${km(t.distanceM)} km. " +
-                    "Zapíše se po zastavení na víc než 5 minut (nebo podržením widgetu).",
+                    "Zapíše se po vypnutí motoru (nebo podržením widgetu).",
                 color = Palette.Text, fontSize = 15.sp, modifier = Modifier.padding(12.dp)
             )
         }
@@ -240,8 +241,8 @@ private fun androidx.compose.foundation.layout.ColumnScope.DrivesTab(
     val entries = (list.map { Entry.Drive(it) } + fuelList.map { Entry.Fuel(it) }).sortedByDescending { it.at }
     if (entries.isEmpty()) {
         Text(
-            "Zatím tu nejsou žádné jízdy. Jízda začne rozjezdem a zapíše se, když auto stojí déle než 5 minut " +
-                "(kratší přejezdy pod 300 m se nezapisují).",
+            "Zatím tu nejsou žádné jízdy. Jízda začne startem motoru a zapíše se po vypnutí motoru " +
+                "(kratší přejezdy pod 100 m se nezapisují).",
             color = Palette.Muted, fontSize = 15.sp, modifier = Modifier.padding(12.dp)
         )
     }
@@ -450,28 +451,66 @@ private fun RowScope.Cell(text: String, w: Float, end: Boolean = false, bold: Bo
     )
 }
 
-/** Ruční zadání stavu tachometru: od něj se dál přičítají km z GPS. */
+/** Ruční zadání stavu tachometru a naučení tachometru z CAN boxu. */
 @Composable
 private fun OdometerDialog(onClose: () -> Unit) {
     var text by remember { mutableStateOf(Odometer.km()?.toString() ?: "") }
     val value = parseNumber(text)?.toInt()
+    val field by cz.kuba.dash407.car.CanOdometer.field.collectAsState()
+    val canKm by cz.kuba.dash407.car.CanOdometer.km.collectAsState()
+    var result by remember { mutableStateOf<String?>(null) }
+    var searching by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     AlertDialog(
         onDismissRequest = onClose,
         title = { Text("Stav tachometru") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Opiš kilometry z přístrojového štítu. Dál se k nim přičítají km z GPS; každé tankování se stavem tachometru odhad zase opraví.", fontSize = 15.sp)
+                Text("Opiš kilometry z přístrojového štítu.", fontSize = 15.sp)
                 OutlinedTextField(
                     value = text, onValueChange = { text = it.filter { c -> c.isDigit() }.take(7) },
                     label = { Text("km") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
+                Text("Tachometr z CAN boxu", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                val f = field
+                if (f == null) {
+                    Text(
+                        "Při zapnutém zapalování klepni na Najít v CAN boxu: Dash 407 v datech z CAN boxu vyhledá číslo, " +
+                            "které odpovídá stavu ze štítu, a od té doby čte tachometr přímo. Když ho nenajde, počítá dál odhad z GPS.",
+                        color = Palette.Muted, fontSize = 13.sp
+                    )
+                } else {
+                    Text(
+                        "Čte se z CAN boxu (${f.describe()})" + (canKm?.let { " · teď ${odo(it)} km" } ?: " · zatím bez dat"),
+                        color = Palette.Muted, fontSize = 13.sp
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        enabled = value != null && value > 0 && !searching,
+                        onClick = {
+                            val v = value ?: return@OutlinedButton
+                            searching = true
+                            result = "Ptám se CAN boxu…"
+                            cz.kuba.dash407.car.McuLink.askAllPages()
+                            scope.launch {
+                                kotlinx.coroutines.delay(2_000)
+                                result = cz.kuba.dash407.car.CanOdometer.learn(v)
+                                searching = false
+                            }
+                        },
+                        shape = RoundedCornerShape(14.dp)
+                    ) { Text("Najít v CAN boxu") }
+                    if (f != null) TextButton(onClick = { cz.kuba.dash407.car.CanOdometer.forget(); result = "Tachometr z CAN boxu je zapomenutý, počítá se odhad." }) { Text("Zapomenout") }
+                }
+                result?.let { Text(it, fontSize = 13.sp, color = Palette.Text) }
             }
         },
         confirmButton = {
             TextButton(enabled = value != null && value > 0, onClick = { value?.let { Odometer.calibrate(it, "ručně") }; onClose() }) { Text("Uložit") }
         },
-        dismissButton = { TextButton(onClick = onClose) { Text("Zrušit") } }
+        dismissButton = { TextButton(onClick = onClose) { Text("Zavřít") } }
     )
 }
 

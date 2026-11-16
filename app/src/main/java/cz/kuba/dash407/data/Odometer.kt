@@ -9,11 +9,13 @@ import kotlin.math.roundToInt
 data class OdoRef(val km: Int, val gpsM: Double, val at: Long, val source: String)
 
 /**
- * Odhad stavu tachometru: poslední zadaný stav (ručně, z tankování nebo ze servisní knížky)
+ * Stav tachometru: přímo z CAN boxu (když je naučený a data chodí), jinak odhad – poslední zadaný stav (ručně, z tankování nebo ze servisní knížky)
  * plus kilometry ujeté podle GPS od té doby. Každé nové tankování s tachometrem odhad opraví.
  */
 object Odometer {
     private const val KEY = "odometer_v1"
+    /** Zdroj stavu, který přišel přímo z CAN boxu (ne odhad). */
+    const val SOURCE_CAN = "CAN box"
     private val _ref = MutableStateFlow<OdoRef?>(null)
     val ref: StateFlow<OdoRef?> = _ref
     private var loaded = false
@@ -33,6 +35,8 @@ object Odometer {
     /** Odhad stavu tachometru v km, nebo null, když ještě není z čeho počítat. */
     fun km(): Int? {
         load()
+        // Skutečný stav z CAN boxu má přednost před odhadem.
+        cz.kuba.dash407.car.CanOdometer.fresh()?.let { return it }
         val r = _ref.value ?: fallback() ?: return null
         val since = (Trip.state.value.totalM - r.gpsM).coerceAtLeast(0.0)
         return (r.km + since / 1000.0).roundToInt()

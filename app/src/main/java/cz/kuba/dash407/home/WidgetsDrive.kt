@@ -56,6 +56,7 @@ import cz.kuba.dash407.data.Gps
 import cz.kuba.dash407.data.Perf
 import cz.kuba.dash407.data.PerfState
 import cz.kuba.dash407.data.SpeedLimit
+import cz.kuba.dash407.data.SpeedZone
 import cz.kuba.dash407.data.Trip
 import cz.kuba.dash407.ui.Czech
 import cz.kuba.dash407.ui.DASH
@@ -74,6 +75,20 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
+ * Barva aktuální rychlosti podle typu silnice (v obci / mimo obec / dálnice).
+ * Widget si po dobu zobrazení zapne zjišťování typu silnice z OSM.
+ */
+@Composable
+fun rememberSpeedColor(speed: Int?, fallback: Color = Palette.Text): Color {
+    DisposableEffect(Unit) {
+        SpeedLimit.acquire()
+        onDispose { SpeedLimit.release() }
+    }
+    val limit by SpeedLimit.state.collectAsState()
+    return SpeedZone.color(speed, limit.zone, fallback)
+}
+
+/**
  * Navigace (dřív Rychlost): uprostřed velká rychlost z GPS, v rozích okamžitá spotřeba a dojezd z auta
  * a při navigaci příjezd do cíle a zbývající km (hodnoty v barvě zvýraznění).
  * U nízkého widgetu zůstane jen rychlost.
@@ -86,6 +101,7 @@ fun SpeedWidget(modifier: Modifier) {
     val nav by cz.kuba.dash407.nav.NavEngine.state.collectAsState()
     // now jen vyvolá překreslení, aby se čas příjezdu průběžně přepočítával.
     val now by rememberNow()
+    val speedColor = rememberSpeedColor(speed)
     WidgetCard(null, modifier, padding = 10.dp) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val showRows = maxHeight > 150.dp && maxWidth > 150.dp
@@ -104,7 +120,7 @@ fun SpeedWidget(modifier: Modifier) {
                         )
                     }
                 }
-                FitText(speed?.toString() ?: DASH, Modifier.fillMaxWidth().weight(1f), weight = FontWeight.Bold, maxSp = 160f, widthPerChar = 0.62f)
+                FitText(speed?.toString() ?: DASH, Modifier.fillMaxWidth().weight(1f), color = speedColor, weight = FontWeight.Bold, maxSp = 160f, widthPerChar = 0.62f)
                 if (showRows) {
                     Row(Modifier.fillMaxWidth()) {
                         SpeedReading("příjezd do cíle", arrival, labelSp, valueSp, look.accent, Modifier.weight(1f))
@@ -133,9 +149,9 @@ private fun SpeedReading(label: String, value: String, labelSp: Float, valueSp: 
  */
 @Composable
 fun SpeedGaugeWidget(modifier: Modifier) {
-    val look = LocalLook.current
     val speed by Gps.speedKmh.collectAsState()
     val car by CarRepo.state.collectAsState()
+    val speedColor = rememberSpeedColor(speed)
     WidgetCard(null, modifier, padding = 12.dp, onClick = { UiBus.open(Panel.CAR) }) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val showCar = maxHeight > 170.dp && maxWidth > 160.dp
@@ -152,14 +168,14 @@ fun SpeedGaugeWidget(modifier: Modifier) {
                         val part = ((speed ?: 0).coerceIn(0, 200)) / 200f
                         if (part > 0f) {
                             drawArc(
-                                if ((speed ?: 0) > 130) Palette.Amber else look.accent,
+                                speedColor,
                                 135f, 270f * part, false, topLeft, arc, style = Stroke(stroke, cap = StrokeCap.Round)
                             )
                         }
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            speed?.toString() ?: DASH, color = Palette.Text,
+                            speed?.toString() ?: DASH, color = speedColor,
                             fontSize = (side.value * 0.24f).coerceIn(28f, 80f).sp, fontWeight = FontWeight.Bold, maxLines = 1
                         )
                         Text("km/h", color = Palette.Muted, fontSize = (side.value * 0.065f).coerceIn(12f, 18f).sp)
@@ -260,7 +276,7 @@ private fun TripStats(t: cz.kuba.dash407.data.TripStats, elapsedMs: Long, modifi
  * Denní kniha jízd: sedm řádků „popisek … hodnota“ přes celou výšku widgetu.
  * Ujeto, průměr, maximum a začátek patří k právě probíhající (nebo poslední) jízdě a vynulují se,
  * když začne nová jízda. Čas v pohybu a počet jízd jsou za dnešek. Klepnutí otevře Knihu jízd,
- * podržení jízdu ukončí (další rozjezd bude nová jízda).
+ * podržení jízdu ukončí (když motor běží, hned začne nová).
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -303,7 +319,7 @@ fun TripComputerWidget(modifier: Modifier, preview: Boolean) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { confirm = false },
             title = { Text("Ukončit jízdu?") },
-            text = { Text("Jízda se zapíše do Knihy jízd. Při dalším rozjezdu začne nová jízda a ujeto, průměr, maximum a začátek se vynulují.") },
+            text = { Text("Jízda se zapíše do Knihy jízd a hned začne nová: ujeto, průměr, maximum a začátek se vynulují. Jinak jízda končí sama vypnutím motoru.") },
             confirmButton = { androidx.compose.material3.TextButton(onClick = { Trip.endDriveNow(); confirm = false }) { Text("Ukončit") } },
             dismissButton = { androidx.compose.material3.TextButton(onClick = { confirm = false }) { Text("Zrušit") } }
         )
@@ -452,7 +468,10 @@ fun CompassWidget(modifier: Modifier) {
                     color = look.accent, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1
                 )
                 Text(fix?.altitude?.let { "${it.roundToInt()} m n. m." } ?: "výška –", color = Palette.Text, fontSize = 15.sp, maxLines = 1)
-                Text(fix?.speedKmh?.let { "${it.roundToInt()} km/h" } ?: "– km/h", color = Palette.Muted, fontSize = 15.sp, maxLines = 1)
+                Text(
+                    fix?.speedKmh?.let { "${it.roundToInt()} km/h" } ?: "– km/h",
+                    color = rememberSpeedColor(fix?.speedKmh?.roundToInt(), Palette.Muted), fontSize = 15.sp, maxLines = 1
+                )
                 Text(fix?.accuracy?.let { "±${it.roundToInt()} m" } ?: "", color = Palette.Muted, fontSize = 14.sp, maxLines = 1)
             }
         }
@@ -480,7 +499,7 @@ fun GpsWidget(modifier: Modifier) {
                 SmallValue("Výška", fix?.altitude?.let { "${it.roundToInt()} m" } ?: DASH, Modifier.weight(1f))
             }
             Row(Modifier.fillMaxWidth()) {
-                SmallValue("Rychlost", fix?.speedKmh?.let { "${it.roundToInt()} km/h" } ?: DASH, Modifier.weight(1f))
+                SmallValue("Rychlost", fix?.speedKmh?.let { "${it.roundToInt()} km/h" } ?: DASH, Modifier.weight(1f), rememberSpeedColor(fix?.speedKmh?.roundToInt()))
                 SmallValue("Stáří", age?.let { "$it s" } ?: DASH, Modifier.weight(1f))
             }
         }
@@ -490,10 +509,10 @@ fun GpsWidget(modifier: Modifier) {
 }
 
 @Composable
-fun SmallValue(label: String, value: String, modifier: Modifier = Modifier) {
+fun SmallValue(label: String, value: String, modifier: Modifier = Modifier, color: Color = Palette.Text) {
     Column(modifier) {
         Text(label, color = Palette.Muted, fontSize = 13.sp, maxLines = 1)
-        Text(value, color = Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Text(value, color = color, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }
 

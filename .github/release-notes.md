@@ -1,3 +1,16 @@
+## Dash 407 – verze 3.0
+
+- Kniha jízd: jízda začíná startem motoru a končí jeho vypnutím, bez čekání mezi jízdami
+- Kniha jízd: zapisují se jízdy od 100 m
+- Kniha jízd: tachometr přímo z CAN boxu (Zadat stav › Najít v CAN boxu)
+- Záloha: všechna data v jednom souboru, ručně i automaticky každý den, volitelně na Google Disk
+- Aplikace: ostré sestavení – mnohem menší APK a rychlejší start
+- Pády: záznam chyb a tlačítko Odeslat hlášení na GitHub
+- Bez internetu: dotazy čekají ve frontě, mapa a čerpací stanice fungují z paměti
+- Rychlost: barva podle překročení rychlosti v obci, mimo obec a na dálnici
+
+Stáhni `Dash407-3.0.apk` (nabídne se samo).
+
 ## Dash 407 – verze 2.13
 
 - Navigace: mapa se už nesmyslně neotáčí

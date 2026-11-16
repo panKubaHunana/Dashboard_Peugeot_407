@@ -259,7 +259,7 @@ fun SettingsScreen() {
         }
 
         Card("Otevřené mapy", "OpenStreetMap a OpenTopoMap fungují bez klíče a zdarma. Bez klíče Mapy.com se cíle hledají v otevřených datech OpenStreetMap " +
-            "(Nominatim) a trasa i pokyny jdou z otevřeného routeru Valhalla. Dlaždice se pamatují 7 dní, jak žádají pravidla OpenStreetMap.") {
+            "(Nominatim) a trasa i pokyny jdou z otevřeného routeru Valhalla. Dlaždice se pamatují na disku (aspoň 7 dní, jak žádají pravidla OpenStreetMap) a bez internetu se použijí i starší.") {
             Text("Podklad přepneš ve Vzhledu (✦) › Mapa.", color = Palette.Text, fontSize = 15.sp)
         }
 
@@ -331,6 +331,10 @@ fun SettingsScreen() {
                 )
             }
         }
+
+        StatusCard()
+        BackupCard()
+        CrashCard()
 
         SettingCard(
             "Aktualizace",

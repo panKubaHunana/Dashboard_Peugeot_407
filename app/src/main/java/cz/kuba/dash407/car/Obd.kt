@@ -186,6 +186,7 @@ object Obd {
     fun disconnect() {
         job?.cancel()
         job = null
+        Engine.onObdDisconnected()
         _live.value = ObdLive(status = "Odpojeno")
     }
 
@@ -230,8 +231,11 @@ object Obd {
                 }
                 while (isActive) {
                     var l = _live.value
+                    val rpmNow = pid(port, "010C", 2)?.let { (it[0] * 256 + it[1]) / 4 }
+                    // Start a stop motoru pro Knihu jízd.
+                    Engine.onObdRpm(rpmNow)
                     l = l.copy(
-                        rpm = pid(port, "010C", 2)?.let { (it[0] * 256 + it[1]) / 4 } ?: l.rpm,
+                        rpm = rpmNow ?: l.rpm,
                         speedKmh = pid(port, "010D", 1)?.get(0) ?: l.speedKmh,
                         coolantC = pid(port, "0105", 1)?.let { it[0] - 40 } ?: l.coolantC,
                         intakeC = pid(port, "010F", 1)?.let { it[0] - 40 } ?: l.intakeC,
@@ -253,6 +257,7 @@ object Obd {
             } finally {
                 try { socket?.close() } catch (e: Exception) { }
                 try { tcp?.close() } catch (e: Exception) { }
+                Engine.onObdDisconnected()
                 if (_live.value.connected) _live.value = ObdLive(status = "Odpojeno")
             }
         }
