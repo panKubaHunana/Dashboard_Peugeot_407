@@ -119,6 +119,8 @@ object Trip {
             if (now - lastSeen > RESUME_MS) finish(s, lastSeen)
         }
         rollDay(now)
+        // Motor už běží (Engine se vyhodnotil dřív): jízda začne hned.
+        if (Engine.state.value.running && !_state.value.active) begin(_state.value, now)
     }
 
     /** Start nebo stop motoru (z [Engine]). */

@@ -40,6 +40,8 @@ object Engine {
     private var obdRunning: Boolean? = null
     private var lowSince = 0L
     private var lastAnswerAt = 0L
+    /** První dotaz po připojení OBD – od něj se počítá mlčení řídicí jednotky. */
+    private var firstAskAt = 0L
     private var registered = false
 
     private val receiver = object : BroadcastReceiver() {
@@ -82,6 +84,7 @@ object Engine {
     fun onObdRpm(rpm: Int?) {
         val now = System.currentTimeMillis()
         synchronized(this) {
+            if (firstAskAt == 0L) firstAskAt = now
             if (rpm != null) {
                 lastAnswerAt = now
                 if (rpm >= RPM_RUNNING) {
@@ -91,7 +94,7 @@ object Engine {
                     if (lowSince == 0L) lowSince = now
                     if (now - lowSince >= STOP_CONFIRM_MS || obdRunning == null) obdRunning = false
                 }
-            } else if (lastAnswerAt == 0L || now - lastAnswerAt >= ECU_SILENT_MS) {
+            } else if (now - (if (lastAnswerAt == 0L) firstAskAt else lastAnswerAt) >= ECU_SILENT_MS) {
                 obdRunning = false
             }
         }
@@ -104,6 +107,7 @@ object Engine {
             obdRunning = null
             lowSince = 0L
             lastAnswerAt = 0L
+            firstAskAt = 0L
         }
         evaluate()
     }
