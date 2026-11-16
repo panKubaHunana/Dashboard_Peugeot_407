@@ -12,7 +12,7 @@ on:
         default: navrh-2.14
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: check-${{ inputs.branch || github.ref }}
@@ -68,6 +68,24 @@ jobs:
           path: app/src/test/snapshots/images/
           retention-days: 14
           if-no-files-found: warn
+
+      # Kopie snímků do větve „snimky“ (složka podle větve návrhu), aby si je Claude mohl stáhnout přes git.
+      # Jen ukázková data – žádné kontakty ani klíče.
+      - name: Snímky do větve snimky
+        if: always()
+        continue-on-error: true
+        env:
+          SRC: ${{ inputs.branch || github.ref_name }}
+        run: |
+          [ -d app/src/test/snapshots/images ] || exit 0
+          cp -r app/src/test/snapshots/images /tmp/snimky
+          cd /tmp && rm -rf pub && mkdir pub && cd pub
+          git init -q && git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          if git fetch -q --depth 1 origin snimky; then git checkout -q -b snimky FETCH_HEAD; else git checkout -q --orphan snimky; fi
+          rm -rf "$SRC" && mkdir -p "$SRC" && cp /tmp/snimky/*.png "$SRC/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A && git commit -q -m "Snímky widgetů: $SRC [skip ci]" && git push -q origin snimky
 
       - name: APK ke stažení (jen pro zkoušku)
         uses: actions/upload-artifact@v4
