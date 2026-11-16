@@ -54,7 +54,10 @@ object DriveLog {
     private val _entries = MutableStateFlow<List<DriveRecord>>(emptyList())
     val entries: StateFlow<List<DriveRecord>> = _entries
     private var file: File? = null
-    private var geocoding = false
+    private val geocoding = java.util.concurrent.atomic.AtomicBoolean(false)
+    /** Po chybě serveru (internet je, ale Nominatim neodpovídá) se názvy míst chvíli nezkoušejí. */
+    @Volatile private var placesPauseUntil = 0L
+    private const val PLACES_PAUSE_MS = 10 * 60_000L
 
     @Synchronized
     fun init(context: Context) {
@@ -67,8 +70,15 @@ object DriveLog {
                 _entries.value = (0 until a.length()).mapNotNull { fromJson(a.getJSONObject(it)) }.sortedByDescending { it.start }
             }
         } catch (e: Exception) {
-            // Poškozený soubor necháme být (nepřepisujeme ho prázdným seznamem).
-            f.renameTo(File(f.parentFile, "$FILE.poskozeny"))
+            // Poškozený soubor necháme být (nepřepisujeme ho prázdným seznamem) a zkusíme
+            // dočasný soubor z přerušeného zápisu.
+            val tmp = SafeFile.quarantine(f)
+            try {
+                if (tmp != null) {
+                    val a = JSONArray(tmp)
+                    _entries.value = (0 until a.length()).mapNotNull { fromJson(a.getJSONObject(it)) }.sortedByDescending { it.start }
+                }
+            } catch (x: Exception) { }
         }
         fillPlaces()
     }
@@ -95,15 +105,14 @@ object DriveLog {
 
     private fun persist() {
         val f = file ?: return
-        val list = _entries.value
         scope.launch {
             synchronized(this@DriveLog) {
                 try {
+                    // Vždy aktuální stav (ne kopie z okamžiku změny): když se dva zápisy
+                    // na pozadí prohodí, poslední stejně zapíše nejnovější data.
                     val a = JSONArray()
-                    for (r in list) a.put(toJson(r))
-                    val tmp = File(f.parentFile, "$FILE.tmp")
-                    tmp.writeText(a.toString())
-                    tmp.renameTo(f)
+                    for (r in _entries.value) a.put(toJson(r))
+                    SafeFile.write(f, a.toString())
                 } catch (e: Exception) {
                     // Neuloženo; zkusí se při další změně.
                 }
@@ -112,45 +121,64 @@ object DriveLog {
     }
 
     /** Znovu zkusit doplnit názvy míst (po připojení k internetu). */
-    fun retryPlaces() = fillPlaces()
+    fun retryPlaces() {
+        placesPauseUntil = 0L
+        fillPlaces()
+    }
 
-    /** Doplní názvy míst (Nominatim, nejvýš jeden dotaz za sekundu). */
+    /**
+     * Doplní názvy míst (Nominatim, nejvýš jeden dotaz za sekundu).
+     * Bez internetu počká ve frontě na připojení. Když internet je, ale server odmítá nebo
+     * neodpovídá, nezkouší se to dokola: další pokus až za [PLACES_PAUSE_MS] nebo po novém připojení.
+     */
     private fun fillPlaces() {
-        if (geocoding) return
-        geocoding = true
+        if (System.currentTimeMillis() < placesPauseUntil) return
+        if (!geocoding.compareAndSet(false, true)) return
         scope.launch {
             try {
                 for (r in _entries.value.filter { it.from == null || it.to == null }.take(40)) {
-                    val from = r.from ?: place(r.startLat, r.startLon).also { delay(1100) }
-                    val to = r.to ?: place(r.endLat, r.endLon).also { delay(1100) }
-                    if (from == null && to == null) {
-                        // Bez internetu: počká se ve frontě, až se rádio připojí.
-                        NetQueue.add(NetQueue.Job("places"))
+                    var from = r.from
+                    var to = r.to
+                    var failed = false
+                    try {
+                        if (from == null) { from = place(r.startLat, r.startLon); delay(1100) }
+                        if (to == null) { to = place(r.endLat, r.endLon); delay(1100) }
+                    } catch (e: Exception) {
+                        failed = true
+                    }
+                    if (from != r.from || to != r.to) {
+                        val current = _entries.value.firstOrNull { it.id == r.id }
+                        if (current != null) update(current.copy(from = current.from ?: from, to = current.to ?: to))
+                    }
+                    if (failed) {
+                        if (NetQueue.online.value) placesPauseUntil = System.currentTimeMillis() + PLACES_PAUSE_MS
+                        else NetQueue.add(NetQueue.Job("places"))
                         break
                     }
-                    val current = _entries.value.firstOrNull { it.id == r.id } ?: continue
-                    update(current.copy(from = current.from ?: from, to = current.to ?: to))
                 }
             } finally {
-                geocoding = false
+                geocoding.set(false)
             }
         }
     }
 
-    private fun place(lat: Double, lon: Double): String? = try {
+    /**
+     * Název místa (obec, ulice). Když k bodu žádná adresa není (pole, les), vrátí souřadnice,
+     * aby se na to místo aplikace už znovu neptala. Chyba sítě nebo serveru = výjimka.
+     */
+    private fun place(lat: Double, lon: Double): String {
         val url = String.format(
             Locale.US,
             "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=%.6f&lon=%.6f&zoom=17&addressdetails=1&accept-language=cs",
             lat, lon
         )
         val a = JSONObject(Net.getText(url)).optJSONObject("address")
-        if (a == null) null else {
+        val name = if (a == null) null else {
             val town = listOf("city", "town", "village", "municipality", "hamlet").firstNotNullOfOrNull { a.optString(it).takeIf { s -> s.isNotBlank() } }
             val street = a.optString("road").takeIf { it.isNotBlank() }
             listOfNotNull(town, street).joinToString(", ").ifBlank { null }
         }
-    } catch (e: Exception) {
-        null
+        return name ?: String.format(Locale.US, "%.4f, %.4f", lat, lon)
     }
 
     private fun toJson(r: DriveRecord) = JSONObject()

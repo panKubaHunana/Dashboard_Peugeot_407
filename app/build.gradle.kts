@@ -18,7 +18,7 @@ android {
         minSdk = 29
         targetSdk = 34
         versionCode = ciVersion
-        versionName = "3.0.1"
+        versionName = "3.0.2"
         // GitHub Actions dodá přesné označení vydání (např. 2.7 nebo 2.7.23),
         // aby aplikace při kontrole aktualizací poznala, kterou verzi má.
         System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }?.let { versionName = it }

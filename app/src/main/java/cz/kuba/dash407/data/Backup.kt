@@ -51,7 +51,7 @@ object Backup {
     /** Klíče nastavení, které se nezálohují (patří jen k této instalaci). */
     private val SKIP_PREFS = setOf(KEY_LAST_AUTO, KEY_TARGET, KEY_TARGET_NAME, KEY_LAST_RESULT, "update_pending_notes")
     /** Soubory, které se nezálohují. */
-    private val SKIP_FILES = setOf("net_fronta.json", "kniha_jizd.json.tmp")
+    private val SKIP_FILES = setOf("net_fronta.json", "kniha_jizd.json.tmp", "tankovani.json.tmp", "servisni_knizka.json.tmp")
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -267,6 +267,12 @@ object Backup {
 
         // Před přepsáním si aktuální stav uložíme stranou (Stažené soubory/Dash407).
         try { saveToDownloads(app) } catch (e: Exception) { }
+
+        // Od teď nic nezapisovat (kniha jízd, jízda, trasa, tankování): zápis na pozadí by jinak
+        // mohl obnovená data přepsat starými, než se aplikace restartuje.
+        SafeFile.frozen = true
+        Gps.stop("service")
+        Gps.stop()
 
         val keep = Prefs.shared().all.filterKeys { it in SKIP_PREFS }
         val edit = Prefs.shared().edit().clear()

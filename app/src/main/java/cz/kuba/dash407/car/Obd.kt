@@ -75,6 +75,14 @@ object Obd {
     private val scope = CoroutineScope(Dispatchers.IO)
     private var job: Job? = null
     private var loaded = false
+    /** Spojení má běžet (připojeno ručně nebo automaticky); po výpadku se zkusí znovu. */
+    @Volatile private var wanted = false
+    private var appContext: Context? = null
+    private var retries = 0
+    private var reconnect: Job? = null
+    /** Kolik kol po sobě adaptér nic neodpověděl ani na vlastní dotaz napětí. */
+    private const val SILENT_ROUNDS = 3
+    private val RETRY_S = intArrayOf(10, 30, 60)
 
     fun init() {
         if (loaded) return
@@ -184,6 +192,10 @@ object Obd {
     }
 
     fun disconnect() {
+        wanted = false
+        reconnect?.cancel()
+        reconnect = null
+        retries = 0
         job?.cancel()
         job = null
         Engine.onObdDisconnected()
@@ -192,13 +204,21 @@ object Obd {
 
     @SuppressLint("MissingPermission")
     fun connect(context: Context) {
-        if (job?.isActive == true) return
+        val old = job
+        if (old?.isActive == true) return
+        wanted = true
+        appContext = context.applicationContext
+        reconnect?.cancel()
+        reconnect = null
         val cfg = _config.value
         _log.value = emptyList()
         _live.value = ObdLive(busy = true, status = "Připojuji…")
         job = scope.launch {
+            // Předchozí spojení se musí nejdřív úplně zavřít (adaptér unese jen jedno).
+            old?.join()
             var socket: BluetoothSocket? = null
             var tcp: Socket? = null
+            var retry = true
             try {
                 val input: InputStream
                 val output: OutputStream
@@ -207,7 +227,7 @@ object Obd {
                     tcp = Socket().also { it.connect(InetSocketAddress(cfg.host, cfg.port), 5000); it.soTimeout = 4000 }
                     input = tcp.getInputStream(); output = tcp.getOutputStream()
                 } else {
-                    if (cfg.btAddress.isBlank()) { fail("Vyber adaptér v seznamu spárovaných zařízení."); return@launch }
+                    if (cfg.btAddress.isBlank()) { retry = false; fail("Vyber adaptér v seznamu spárovaných zařízení."); return@launch }
                     val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
                     if (adapter == null || !adapter.isEnabled) { fail("Bluetooth je vypnutý."); return@launch }
                     log("Bluetooth ${cfg.btName.ifBlank { cfg.btAddress }}")
@@ -229,6 +249,7 @@ object Obd {
                 } else {
                     _live.value = _live.value.copy(status = "Čtu data z auta")
                 }
+                var silent = 0
                 while (isActive) {
                     var l = _live.value
                     val rpmNow = pid(port, "010C", 2)?.let { (it[0] * 256 + it[1]) / 4 }
@@ -242,13 +263,20 @@ object Obd {
                         mapKpa = pid(port, "010B", 1)?.get(0) ?: l.mapKpa,
                         loadPct = pid(port, "0104", 1)?.let { it[0] * 100 / 255 } ?: l.loadPct,
                         throttlePct = pid(port, "0111", 1)?.let { it[0] * 100 / 255 } ?: l.throttlePct,
-                        volts = parseVolts(port.ask("ATRV", 1500)) ?: l.volts,
+                        volts = l.volts,
                         updatedAt = System.currentTimeMillis()
                     )
+                    // Napětí měří sám adaptér (bez řídicí jednotky): když neodpoví ani na to,
+                    // spojení je mrtvé, i když Bluetooth tvrdí opak.
+                    val rv = port.ask("ATRV", 1500)
+                    if (clean(rv).isEmpty()) silent++ else { silent = 0; retries = 0 }
+                    if (silent >= SILENT_ROUNDS) throw java.io.IOException("adaptér neodpovídá")
+                    l = l.copy(volts = parseVolts(rv) ?: l.volts)
                     _live.value = l.copy(status = "Čtu data z auta")
                     delay(cfg.intervalMs.toLong())
                 }
             } catch (e: SecurityException) {
+                retry = false
                 fail("Chybí oprávnění Bluetooth. Povol ho v nastavení aplikace.")
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -258,8 +286,21 @@ object Obd {
                 try { socket?.close() } catch (e: Exception) { }
                 try { tcp?.close() } catch (e: Exception) { }
                 Engine.onObdDisconnected()
-                if (_live.value.connected) _live.value = ObdLive(status = "Odpojeno")
+                if (_live.value.connected) _live.value = ObdLive(status = "Spojení přerušeno")
+                if (retry && wanted) scheduleReconnect()
             }
+        }
+    }
+
+    /** Po výpadku spojení nový pokus za 10, 30 a pak každých 60 s, dokud ho Kuba sám neodpojí. */
+    private fun scheduleReconnect() {
+        val ctx = appContext ?: return
+        val wait = RETRY_S[retries.coerceAtMost(RETRY_S.size - 1)]
+        retries++
+        _live.value = _live.value.copy(status = _live.value.status + " · nový pokus za $wait s")
+        reconnect = scope.launch {
+            delay(wait * 1000L)
+            if (wanted && job?.isActive != true) connect(ctx)
         }
     }
 

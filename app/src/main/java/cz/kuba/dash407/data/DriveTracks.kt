@@ -30,6 +30,7 @@ object DriveTracks {
     /** Začátek jízdy: zahodí rozpracovanou trasu a zapíše první bod. */
     @Synchronized
     fun start(lat: Double, lon: Double) {
+        if (SafeFile.frozen) return
         buffer.setLength(0)
         buffered = 0
         try { current()?.writeText(line(lat, lon)) } catch (e: Exception) { }
@@ -44,7 +45,7 @@ object DriveTracks {
 
     @Synchronized
     private fun flush() {
-        if (buffer.isEmpty()) return
+        if (buffer.isEmpty() || SafeFile.frozen) return
         try { current()?.appendText(buffer.toString()) } catch (e: Exception) { }
         buffer.setLength(0)
         buffered = 0
@@ -53,6 +54,7 @@ object DriveTracks {
     /** Konec jízdy: trasa dostane id jízdy. */
     @Synchronized
     fun finish(id: Long) {
+        if (SafeFile.frozen) return
         flush()
         val d = dir ?: return
         val f = current() ?: return

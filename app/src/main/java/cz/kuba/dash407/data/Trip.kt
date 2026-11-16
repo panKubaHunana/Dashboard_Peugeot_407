@@ -158,12 +158,15 @@ object Trip {
 
     @Synchronized
     fun onFix(f: Fix) {
+        if (SafeFile.frozen) return
         rollDay(f.time)
+        // Nepřesná poloha (garáž, vysoké domy, po tunelu) se vůbec nepoužije – ani jako předchozí bod,
+        // jinak by se další vzdálenost měřila od ní a skok by se přičetl do ujetých km.
+        if ((f.accuracy ?: 0f) > 40f) return
         val prev = last
         last = f
         var s = _state.value
         if (!s.active) return
-        if ((f.accuracy ?: 0f) > 40f) return
         if (s.startLat == null) {
             // Motor běží, ale poloha přišla až teď: tady jízda začíná.
             s = s.copy(startLat = f.lat, startLon = f.lon, endLat = f.lat, endLon = f.lon, lastFixAt = f.time)
@@ -215,6 +218,7 @@ object Trip {
 
     @Synchronized
     fun save() {
+        if (SafeFile.frozen) return
         lastSave = System.currentTimeMillis()
         val s = _state.value
         try {

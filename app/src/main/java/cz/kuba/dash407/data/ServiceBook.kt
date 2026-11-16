@@ -72,9 +72,20 @@ object ServiceBook {
     fun init(context: Context) {
         if (::file.isInitialized) return
         file = File(context.applicationContext.filesDir, "servisni_knizka.json")
+        if (!file.exists()) return
         try {
-            if (!file.exists()) return
-            val root = JSONObject(file.readText())
+            load(file.readText())
+        } catch (e: Exception) {
+            // Poškozený soubor: odložit stranou (nepřepíše se prázdnou knížkou) a zkusit
+            // dočasný soubor z přerušeného zápisu.
+            val tmp = SafeFile.quarantine(file)
+            try { if (tmp != null) load(tmp) } catch (x: Exception) { }
+        }
+    }
+
+    private fun load(text: String) {
+        run {
+            val root = JSONObject(text)
             root.optJSONObject("car")?.let {
                 _car.value = CarInfo(
                     plate = it.optString("plate"), vin = it.optString("vin"), engine = it.optString("engine"),
@@ -98,8 +109,6 @@ object ServiceBook {
                     o.optString("note")
                 )
             }.sortedByDescending { it.dateMs }
-        } catch (e: Exception) {
-            // Poškozený soubor: začne se prázdnou knížkou, původní soubor zůstane na disku.
         }
     }
 
@@ -118,9 +127,7 @@ object ServiceBook {
                 e.price?.let { o.put("price", it) }
                 arr.put(o)
             }
-            val tmp = File(file.parentFile, file.name + ".tmp")
-            tmp.writeText(JSONObject().put("car", car).put("intervals", iv).put("entries", arr).toString())
-            if (!tmp.renameTo(file)) { file.writeText(tmp.readText()); tmp.delete() }
+            SafeFile.write(file, JSONObject().put("car", car).put("intervals", iv).put("entries", arr).toString())
         } catch (e: Exception) {
             // Neuloženo.
         }

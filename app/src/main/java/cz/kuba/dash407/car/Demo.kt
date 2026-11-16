@@ -14,7 +14,7 @@ import kotlin.math.sin
 
 /** Ukázkový režim: vymyšlená jízda, aby šlo prostředí vyzkoušet i mimo auto. */
 object Demo {
-    private val scope = CoroutineScope(Dispatchers.Default)
+    private val scope = CoroutineScope(Dispatchers.Main)
     private var job: Job? = null
     private var demoRoute: Any? = null
     private var demoAlong = 0.0

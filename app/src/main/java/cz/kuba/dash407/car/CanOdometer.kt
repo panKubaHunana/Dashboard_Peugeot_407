@@ -52,6 +52,10 @@ object CanOdometer {
     val km: StateFlow<Int?> = _km
     @Volatile private var kmAt = 0L
     private var loaded = false
+    /** Hodnota mimo rozsah, která se ale opakuje: po [RELEARN_FRAMES] stejných rámcích se přijme. */
+    private var oddValue = -1
+    private var oddCount = 0
+    private const val RELEARN_FRAMES = 10
 
     private fun load() {
         if (loaded) return
@@ -75,7 +79,14 @@ object CanOdometer {
         if (v !in 1..2_000_000) return
         val old = _km.value
         // Tachometr nejde pozpátku; skok o víc než 500 km je chyba v rámci.
-        if (old != null && (v < old - 1 || v > old + 500)) return
+        // Když se ale stejná „chybná“ hodnota drží (první přečtená byla nesmysl), přijme se,
+        // aby tachometr nezůstal navždy zaseknutý.
+        if (old != null && (v < old - 1 || v > old + 500)) {
+            if (abs(v - oddValue) <= 2) oddCount++ else { oddValue = v; oddCount = 1 }
+            if (oddCount < RELEARN_FRAMES) return
+        }
+        oddValue = -1
+        oddCount = 0
         kmAt = System.currentTimeMillis()
         if (old != v) {
             _km.value = v
@@ -127,9 +138,12 @@ object CanOdometer {
             return "V datech z CAN boxu (${frames.size} druhů rámců) jsem stav ${actualKm} km nenašel. " +
                 "CAN box tachometr zřejmě neposílá – dál se počítá odhad z GPS. Zkus to ještě jednou za jízdy."
         }
-        val f = found.first()
+        // Nejbližší číslo ke stavu ze štítu; při shodě kratší zápis (3 bajty) a celé km.
+        val f = found.minWithOrNull(
+            compareBy<OdoField>({ abs((it.read(frames[it.type] ?: ByteArray(0)) ?: Int.MAX_VALUE) - actualKm) }, { it.width }, { it.tenths })
+        ) ?: found.first()
         save(f)
-        val extra = if (found.size > 1) " Pozor, číslo sedělo na ${found.size} místech – vybral jsem první. Zkontroluj po jízdě, že tachometr přibývá." else ""
+        val extra = if (found.size > 1) " Pozor, číslo sedělo na ${found.size} místech – vybral jsem nejbližší. Zkontroluj po jízdě, že tachometr přibývá." else ""
         return "Tachometr nalezen: ${f.describe()}. Dash 407 ho teď čte přímo z CAN boxu.$extra"
     }
 

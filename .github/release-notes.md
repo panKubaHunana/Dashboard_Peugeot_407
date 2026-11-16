@@ -1,3 +1,14 @@
+## Dash 407 – verze 3.0.2
+
+- Tankování a servisní knížka: data se ukládají bezpečně a výpadek proudu je už nesmaže
+- Kniha jízd: ukázkový režim už nezapisuje vymyšlené jízdy
+- Kniha jízd: nepřesné body GPS se nepřičítají do ujetých km
+- Kniha jízd: jízda nezačne při vypnutém rádiu a zhasnutí displeje ji při běžícím motoru (OBD) nerozdělí
+- OBD: po výpadku spojení se adaptér sám znovu připojí
+- Internet: názvy míst se při chybě serveru už nestahují dokola
+
+Stáhni `Dash407-3.0.2.apk` (nabídne se samo).
+
 ## Dash 407 – verze 3.0.1
 
 - Kniha jízd: opraven pád při otevření Teplotní mapy

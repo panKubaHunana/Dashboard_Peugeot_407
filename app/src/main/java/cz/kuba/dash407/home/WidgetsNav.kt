@@ -416,10 +416,11 @@ fun MapWidget(modifier: Modifier, preview: Boolean) {
         MapView(Modifier.fillMaxSize(), shownZoom)
         if (src.key == KeyNeed.GOOGLE && hasKey && !preview) {
             // Text autorských práv Googlu se mění podle výřezu mapy: obnovujeme ho jednou za minutu.
+            val zoomNow by androidx.compose.runtime.rememberUpdatedState(shownZoom)
             androidx.compose.runtime.LaunchedEffect(src.id) {
                 while (true) {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        GoogleTiles.refreshCopyright(src.id.removePrefix("g_"), shownZoom, Gps.fix.value)
+                        GoogleTiles.refreshCopyright(src.id.removePrefix("g_"), zoomNow, Gps.fix.value)
                     }
                     kotlinx.coroutines.delay(60_000)
                 }

@@ -88,11 +88,17 @@ object Gps {
         }
     }
 
-    private fun publish(f: Fix) {
+    /**
+     * [fake] = vymyšlená poloha z ukázkového režimu: jde jen do widgetů, mapy a navigace,
+     * nikdy do Knihy jízd, odhadu tachometru ani automatického tankování.
+     */
+    private fun publish(f: Fix, fake: Boolean = false) {
         _fix.value = f
         _speedKmh.value = f.speedKmh?.roundToInt()
-        Trip.onFix(f)
-        FuelStops.onFix(f)
+        if (!fake) {
+            Trip.onFix(f)
+            FuelStops.onFix(f)
+        }
         Perf.onFix(f)
         SpeedLimit.onFix(f)
         RouteState.onFix(f)
@@ -150,7 +156,7 @@ object Gps {
     fun demoFix(f: Fix?) {
         demo = f != null
         if (f != null) {
-            publish(f)
+            publish(f, fake = true)
             _satellites.value = Satellites(12, 17)
         }
     }

@@ -46,30 +46,38 @@ object FuelLog {
         _entries.value = read()
     }
 
-    private fun read(): List<Refuel> = try {
-        if (!file.exists()) emptyList() else {
-            val array = JSONArray(file.readText())
-            val list = ArrayList<Refuel>()
-            for (i in 0 until array.length()) {
-                val o = array.getJSONObject(i)
-                list.add(
-                    Refuel(
-                        id = o.getLong("id"),
-                        at = o.getLong("at"),
-                        odometerKm = o.getInt("km"),
-                        litres = o.getDouble("litres"),
-                        price = o.getDouble("price"),
-                        full = o.optBoolean("full", true),
-                        lat = if (o.has("lat")) o.getDouble("lat") else null,
-                        lon = if (o.has("lon")) o.getDouble("lon") else null,
-                        station = o.optString("station").takeIf { it.isNotBlank() }
-                    )
-                )
-            }
-            list.sortedByDescending { it.odometerKm }
+    private fun read(): List<Refuel> {
+        if (!file.exists()) return emptyList()
+        return try {
+            parse(file.readText())
+        } catch (e: Exception) {
+            // Poškozený soubor (např. výpadek proudu při zápisu): nepřepsat ho prázdným seznamem,
+            // odložit stranou a zkusit dočasný soubor z přerušeného zápisu.
+            val tmp = SafeFile.quarantine(file)
+            try { if (tmp != null) parse(tmp) else emptyList() } catch (x: Exception) { emptyList() }
         }
-    } catch (e: Exception) {
-        emptyList()
+    }
+
+    private fun parse(text: String): List<Refuel> {
+        val array = JSONArray(text)
+        val list = ArrayList<Refuel>()
+        for (i in 0 until array.length()) {
+            val o = array.getJSONObject(i)
+            list.add(
+                Refuel(
+                    id = o.getLong("id"),
+                    at = o.getLong("at"),
+                    odometerKm = o.getInt("km"),
+                    litres = o.getDouble("litres"),
+                    price = o.getDouble("price"),
+                    full = o.optBoolean("full", true),
+                    lat = if (o.has("lat")) o.getDouble("lat") else null,
+                    lon = if (o.has("lon")) o.getDouble("lon") else null,
+                    station = o.optString("station").takeIf { it.isNotBlank() }
+                )
+            )
+        }
+        return list.sortedByDescending { it.odometerKm }
     }
 
     private fun write(list: List<Refuel>) {
@@ -87,7 +95,7 @@ object FuelLog {
             )
         }
         try {
-            file.writeText(array.toString())
+            SafeFile.write(file, array.toString())
         } catch (e: Exception) {
             // Zápis se nepovedl: záznam zůstane aspoň v paměti do konce běhu.
         }

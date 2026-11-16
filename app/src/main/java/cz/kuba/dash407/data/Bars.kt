@@ -33,6 +33,11 @@ object Bars {
             else -> null
         }
         return try {
+            if (value == null) {
+                // Mazat jen to, co zapsal Dash 407 – nastavení jiné aplikace nebo firmwaru zůstane.
+                val cur = current(context)
+                if (cur.isNullOrBlank() || !cur.contains(pkg)) return "beze změny"
+            }
             Settings.Global.putString(context.contentResolver, KEY, value)
             if (value == null) "vypnuto" else "nastaveno: $value"
         } catch (e: Exception) {

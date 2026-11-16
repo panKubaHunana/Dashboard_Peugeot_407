@@ -22,7 +22,8 @@ object Tiles {
     private const val DISK_DAYS = 7L
     private const val DISK_MAX_MB = 400L
     // Paměť podle velikosti (kB): dlaždice @2x mají 512 × 512 px, tedy asi 1 MB.
-    private val cache = object : LruCache<String, ImageBitmap>(96 * 1024) {
+    // 40 MB stačí na celou obrazovku mapy i s okolím; víc by v rádiu vytlačovalo jiné aplikace (hudbu, Mapy.com).
+    private val cache = object : LruCache<String, ImageBitmap>(40 * 1024) {
         override fun sizeOf(key: String, value: ImageBitmap): Int = (value.width * value.height * 4 / 1024).coerceAtLeast(1)
     }
     private val loading = HashSet<String>()
