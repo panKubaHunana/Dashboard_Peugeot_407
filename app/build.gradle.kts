@@ -22,10 +22,6 @@ android {
         // GitHub Actions dodá přesné označení vydání (např. 2.7 nebo 2.7.23),
         // aby aplikace při kontrole aktualizací poznala, kterou verzi má.
         System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }?.let { versionName = it }
-        // Výchozí API klíč Mapy.com z GitHub Secrets (MAPY_API_KEY). V kódu repozitáře není.
-        // Klíč zadaný v Nastavení rádia má přednost.
-        val mapyKey = (System.getenv("MAPY_API_KEY") ?: "").trim().replace("\"", "")
-        buildConfigField("String", "MAPY_KEY", "\"$mapyKey\"")
         buildConfigField("String", "REPO", "\"panKubaHunana/Dashboard_Peugeot_407\"")
     }
 

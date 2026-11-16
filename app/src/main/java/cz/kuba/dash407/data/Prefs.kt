@@ -35,18 +35,8 @@ object Prefs {
     val demo: StateFlow<Boolean> = _demo
 
     private val _mapyKey = MutableStateFlow("")
-    /**
-     * API klíč k REST API Mapy.com, který se opravdu používá (dlaždice, hledání, trasy):
-     * vlastní klíč z Nastavení, jinak výchozí klíč z GitHub Secrets vložený při sestavení.
-     */
+    /** API klíč k REST API Mapy.com (dlaždice, hledání, trasy). Uložený jen v rádiu. */
     val mapyKey: StateFlow<String> = _mapyKey
-
-    private val _mapyKeyOwn = MutableStateFlow("")
-    /** Klíč zadaný ručně v Nastavení (prázdné = použije se výchozí). */
-    val mapyKeyOwn: StateFlow<String> = _mapyKeyOwn
-
-    /** Aplikace má výchozí klíč z GitHub Secrets. */
-    val hasBuiltInMapyKey: Boolean get() = cz.kuba.dash407.BuildConfig.MAPY_KEY.isNotBlank()
 
     private val _home = MutableStateFlow("")
     val homeAddress: StateFlow<String> = _home
@@ -115,14 +105,7 @@ object Prefs {
         store = context.applicationContext.getSharedPreferences("dash407", Context.MODE_PRIVATE)
         _favorites.value = (store.getString(KEY_FAVORITES, "") ?: "").split('|').filter { it.isNotBlank() }
         _demo.value = store.getBoolean(KEY_DEMO, false)
-        // 3.0: starý (uniklý) klíč uložený v rádiu se jednorázově smaže, když aplikace má nový z GitHub Secrets.
-        if (!store.getBoolean("mapy_key_v3", false)) {
-            val e = store.edit().putBoolean("mapy_key_v3", true)
-            if (hasBuiltInMapyKey) e.remove(KEY_MAPY)
-            e.apply()
-        }
-        _mapyKeyOwn.value = store.getString(KEY_MAPY, "") ?: ""
-        _mapyKey.value = _mapyKeyOwn.value.ifBlank { cz.kuba.dash407.BuildConfig.MAPY_KEY }
+        _mapyKey.value = store.getString(KEY_MAPY, "") ?: ""
         _home.value = store.getString(KEY_HOME, "") ?: ""
         _work.value = store.getString(KEY_WORK, "") ?: ""
         _split.value = store.getBoolean(KEY_SPLIT, false)
@@ -160,11 +143,9 @@ object Prefs {
     }
 
     fun setMapyKey(value: String) {
-        _mapyKeyOwn.value = value.trim()
-        _mapyKey.value = value.trim().ifBlank { cz.kuba.dash407.BuildConfig.MAPY_KEY }
+        _mapyKey.value = value.trim()
         store.edit().putString(KEY_MAPY, value.trim()).apply()
     }
-
 
     fun setHomeAddress(value: String) {
         _home.value = value
