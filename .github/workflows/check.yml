@@ -9,7 +9,7 @@ on:
       branch:
         description: Větev ke kontrole
         required: true
-        default: navrh-2.14
+        default: navrh-3.0
 
 permissions:
   contents: write
@@ -39,8 +39,15 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      # Stejné sestavení jako při vydání (od 3.0 ostré s R8), aby se chyby ukázaly už u návrhu.
       - name: Kompilace
-        run: gradle :app:assembleDebug --stacktrace
+        run: |
+          if [ -f app/proguard-rules.pro ]; then
+            gradle :app:assembleRelease --stacktrace
+            mkdir -p app/build/outputs/apk/debug && cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/debug/app-debug.apk
+          else
+            gradle :app:assembleDebug --stacktrace
+          fi
 
       # Snímky widgetů ze skutečného kódu (Paparazzi). Test i plugin se přidají jen tady,
       # build.gradle.kts v repozitáři zůstává beze změny, takže do APK se nic nedostane.
