@@ -1,3 +1,9 @@
+## Dash 407 – verze 3.0.1
+
+- Kniha jízd: opraven pád při otevření Teplotní mapy
+
+Stáhni `Dash407-3.0.1.apk` (nabídne se samo).
+
 ## Dash 407 – verze 3.0
 
 - Kniha jízd: jízda začíná startem motoru a končí jeho vypnutím, bez čekání mezi jízdami

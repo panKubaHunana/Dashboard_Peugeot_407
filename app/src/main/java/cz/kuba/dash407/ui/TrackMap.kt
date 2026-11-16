@@ -67,16 +67,17 @@ class MapCamera(cx: Double = mercX(15.8328), cy: Double = mercY(50.2092), zoom: 
 
     /** Nastaví pohled tak, aby byly vidět všechny body. */
     fun fit(points: List<GeoPt>, widthPx: Float, heightPx: Float, tilePx: Float) {
-        if (points.isEmpty() || widthPx <= 0f || heightPx <= 0f) return
-        val xs = points.map { mercX(it.lon) }
-        val ys = points.map { mercY(it.lat) }
+        val pts = points.filter { it.lat.isFinite() && it.lon.isFinite() }
+        if (pts.isEmpty() || widthPx <= 0f || heightPx <= 0f) return
+        val xs = pts.map { mercX(it.lon) }
+        val ys = pts.map { mercY(it.lat) }
         val minX = xs.min(); val maxX = xs.max(); val minY = ys.min(); val maxY = ys.max()
         cx = (minX + maxX) / 2
         cy = (minY + maxY) / 2
         val spanX = (maxX - minX).coerceAtLeast(1e-6)
         val spanY = (maxY - minY).coerceAtLeast(1e-6)
         val z = minOf(log2(widthPx * 0.85 / (spanX * tilePx)), log2(heightPx * 0.85 / (spanY * tilePx)))
-        zoom = z.coerceIn(3.0, 17.0)
+        zoom = if (z.isFinite()) z.coerceIn(3.0, 17.0) else 11.0
     }
 }
 
@@ -199,6 +200,7 @@ fun HeatMap(camera: MapCamera, points: List<GeoPt>, radiusCells: Int, modifier: 
         TrackMap(camera, Modifier.fillMaxSize()) { _, world ->
             val l = layer ?: return@TrackMap
             val s = 2.0.pow(camera.zoom - l.zoom).toFloat()
+            if (!s.isFinite() || !world.isFinite()) return@TrackMap
             val centerX = ((l.cx - camera.cx) * world + size.width / 2.0).toFloat()
             val centerY = ((l.cy - camera.cy) * world + size.height / 2.0).toFloat()
             val dw = (l.w * s).roundToInt()
@@ -222,6 +224,7 @@ private fun buildHeat(points: List<GeoPt>, cx: Double, cy: Double, zoom: Double,
     val left = cx * world - w / 2.0
     val top = cy * world - h / 2.0
     for (p in points) {
+        if (!p.lat.isFinite() || !p.lon.isFinite()) continue
         val x = ((mercX(p.lon) * world - left) / cell).toInt()
         val y = ((mercY(p.lat) * world - top) / cell).toInt()
         if (x in 0 until gw && y in 0 until gh) grid[y * gw + x] += 1f
@@ -231,11 +234,12 @@ private fun buildHeat(points: List<GeoPt>, cx: Double, cy: Double, zoom: Double,
     repeat(2) { a = boxBlur(a, gw, gh, radius) }
     var max = 0f
     for (v in a) if (v > max) max = v
-    if (max <= 0f) return null
+    if (!(max > 0f) || !max.isFinite()) return null
     val colors = IntArray(gw * gh)
     for (i in a.indices) {
-        val t = sqrt(a[i] / max)
-        colors[i] = if (t < 0.04f) 0 else ramp(t)
+        // Průběžný součet v rozmazání může kvůli zaokrouhlení vyjít nepatrně záporný → sqrt = NaN.
+        val t = sqrt((a[i] / max).coerceIn(0f, 1f))
+        colors[i] = if (!(t >= 0.04f)) 0 else ramp(t)
     }
     val bmp = Bitmap.createBitmap(colors, gw, gh, Bitmap.Config.ARGB_8888)
     return HeatLayer(bmp.asImageBitmap(), cx, cy, zoom, w, h)
@@ -266,7 +270,8 @@ private fun boxBlur(src: FloatArray, w: Int, h: Int, r: Int): FloatArray {
 }
 
 /** Barevná škála teplotní mapy (průhledná modrá → zelená → žlutá → červená). */
-private fun ramp(t: Float): Int {
+private fun ramp(value: Float): Int {
+    val t = if (value.isNaN()) 0f else value.coerceIn(0f, 1f)
     val stops = floatArrayOf(0f, 0.35f, 0.6f, 0.8f, 1f)
     val cols = intArrayOf(0x0040A0FF, 0x9940C0FF.toInt(), 0xCC3DDC84.toInt(), 0xDDFFD600.toInt(), 0xEEFF3D00.toInt())
     var i = 0
